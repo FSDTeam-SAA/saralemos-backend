@@ -10,55 +10,52 @@ import {
   registerUserService
 } from './auth.service.js';
 
-
 export const registerUser = async (req, res, next) => {
-  const { name, email, password } = req.body;
   try {
-
-    const data = await registerUserService({ name, email, password });
+    // Pass full body; service will map/whitelist fields
+    const data = await registerUserService(req.body);
     generateResponse(res, 201, true, 'Registered user successfully!', data);
-  }
-
-  catch (error) {
-
+  } catch (error) {
     if (error.message === 'User already registered.') {
       generateResponse(res, 400, false, 'User already registered', null);
-    }
-
-    else {
-      next(error)
+    } else if (error.message === 'Name, email and password are required') {
+      generateResponse(
+        res,
+        400,
+        false,
+        'Name, email and password are required',
+        null
+      );
+    } else {
+      next(error);
     }
   }
 };
-
 
 export const loginUser = async (req, res, next) => {
   const { email, password } = req.body;
 
   try {
-    const data = await loginUserService({ email, password })
+    const data = await loginUserService({ email, password });
     generateResponse(res, 200, true, 'Login successful', data);
-  }
-
-  catch (error) {
+  } catch (error) {
     if (error.message === 'Email and password are required') {
-      generateResponse(res, 400, false, 'Email and password are required', null);
-    }
-
-    else if (error.message === 'User not found') {
+      generateResponse(
+        res,
+        400,
+        false,
+        'Email and password are required',
+        null
+      );
+    } else if (error.message === 'User not found') {
       generateResponse(res, 404, false, 'User not found', null);
-    }
-
-    else if (error.message === 'Invalid password') {
+    } else if (error.message === 'Invalid password') {
       generateResponse(res, 400, false, 'Invalid password', null);
-    }
-
-    else {
-      next(error)
+    } else {
+      next(error);
     }
   }
 };
-
 
 export const refreshAccessToken = async (req, res, next) => {
   const { refreshToken } = req.body;
@@ -66,106 +63,82 @@ export const refreshAccessToken = async (req, res, next) => {
   try {
     const tokens = await refreshAccessTokenService(refreshToken);
     generateResponse(res, 200, true, 'Token refreshed', tokens);
-  }
-
-  catch (error) {
+  } catch (error) {
     if (error.message === 'No refresh token provided') {
       generateResponse(res, 400, false, 'No refresh token provided', null);
-    }
-
-    else if (error.message === 'Invalid refresh token') {
+    } else if (error.message === 'Invalid refresh token') {
       generateResponse(res, 400, false, 'Invalid refresh token', null);
-    }
-
-    else {
-      next(error)
+    } else {
+      next(error);
     }
   }
 };
 
-
 export const forgetPassword = async (req, res, next) => {
-
   const { email } = req.body;
   try {
     await forgetPasswordService(email);
-    generateResponse(res, 200, true, 'Verification code sent to your email', null);
-  }
-
-  catch (error) {
-
+    generateResponse(
+      res,
+      200,
+      true,
+      'Verification code sent to your email',
+      null
+    );
+  } catch (error) {
     if (error.message === 'Email is required') {
       generateResponse(res, 400, false, 'Email is required', null);
-    }
-
-    else if (error.message === 'Invalid email') {
+    } else if (error.message === 'Invalid email') {
       generateResponse(res, 400, false, 'Invalid email', null);
-    }
-
-    else {
-      next(error)
+    } else {
+      next(error);
     }
   }
 };
-
 
 export const verifyCode = async (req, res, next) => {
   const { otp, email } = req.body;
   try {
     await verifyCodeService({ otp, email });
     generateResponse(res, 200, true, 'Verification successful', null);
-  }
-
-  catch (error) {
+  } catch (error) {
     if (error.message === 'Email and otp are required') {
       generateResponse(res, 400, false, 'Email and otp is required', null);
-    }
-
-    else if (error.message === 'Invalid email') {
+    } else if (error.message === 'Invalid email') {
       generateResponse(res, 400, false, 'Invalid email', null);
-    }
-
-    else if (error.message === 'Otp not found') {
+    } else if (error.message === 'Otp not found') {
       generateResponse(res, 404, false, 'Otp not found', null);
-    }
-
-    else if (error.message === 'Invalid or expired otp') {
+    } else if (error.message === 'Invalid or expired otp') {
       generateResponse(res, 403, false, 'Invalid or expired otp', null);
-    }
-
-    else {
-      next(error)
+    } else {
+      next(error);
     }
   }
 };
-
 
 export const resetPassword = async (req, res, next) => {
   const { email, newPassword } = req.body;
   try {
     await resetPasswordService({ email, newPassword });
     generateResponse(res, 200, true, 'Password reset successfully', null);
-  }
-
-  catch (error) {
+  } catch (error) {
     if (error.message === 'Email and new password are required') {
-      generateResponse(res, 400, false, 'Email and new password are required', null);
-    }
-
-    else if (error.message === 'Invalid email') {
+      generateResponse(
+        res,
+        400,
+        false,
+        'Email and new password are required',
+        null
+      );
+    } else if (error.message === 'Invalid email') {
       generateResponse(res, 400, false, 'Invalid email', null);
-    }
-
-    else if (error.message === 'otp not cleared') {
+    } else if (error.message === 'otp not cleared') {
       generateResponse(res, 403, false, 'otp not cleared', null);
-    }
-
-    else {
-      next(error)
+    } else {
+      next(error);
     }
   }
 };
-
 
 export const changePassword = async (req, res, next) => {
   const { oldPassword, newPassword } = req.body;
@@ -173,33 +146,29 @@ export const changePassword = async (req, res, next) => {
   try {
     await changePasswordService({ userId, oldPassword, newPassword });
     generateResponse(res, 200, true, 'Password changed successfully', null);
-  }
-
-  catch (error) {
+  } catch (error) {
     if (error.message === 'Old and new passwords are required') {
-      generateResponse(res, 400, false, 'Old and new passwords are required', null);
-    }
-
-    else if (error.message === 'Password does not match') {
+      generateResponse(
+        res,
+        400,
+        false,
+        'Old and new passwords are required',
+        null
+      );
+    } else if (error.message === 'Password does not match') {
       generateResponse(res, 400, false, 'Password does not match', null);
-    }
-
-    else {
-      next(error)
+    } else {
+      next(error);
     }
   }
 };
 
-
 export const logoutUser = async (req, res, next) => {
-
   const userId = req.user._id;
   try {
     await User.findByIdAndUpdate(userId, { refreshToken: null });
     generateResponse(res, 200, true, 'Logged out successfully', null);
-  }
-
-  catch (error) {
+  } catch (error) {
     next(error);
   }
 };

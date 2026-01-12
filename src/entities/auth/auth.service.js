@@ -4,32 +4,123 @@ import { refreshTokenSecrete, emailExpires } from '../../core/config/config.js';
 import sendEmail from '../../lib/sendEmail.js';
 import verificationCodeTemplate from '../../lib/emailTemplates.js';
 
+export const registerUserService = async (payload) => {
+  const {
+    // core
+    name,
+    firstName,
+    lastName,
+    fullName,
+    email,
+    password,
+    // optional new fields
+    phoneNumber,
+    jobTitle,
+    companyName,
+    websiteUrl,
+    industryExperience,
+    languagesSpoken,
+    profilePhoto,
+    companyLogo,
+    bannerImage,
+    socialLinks,
+    preferredToneOfVoice,
+    postingFrequency,
+    yachtTypesHandled,
+    averagePriceRange,
+    primaryRegionsServed,
+    listingPlatformsUsed,
+    customHeadline,
+    portfolioPageSlug,
+    qrCodeUrl,
+    // keep existing optional fields
+    username,
+    dob,
+    gender,
+    bio,
+    address
+  } = payload || {};
 
-export const registerUserService = async ({
-  name,
-  email,
-  password
-}) => {
+  if (!email || !password || (!name && !(firstName && lastName))) {
+    throw new Error('Name, email and password are required');
+  }
+
   const existingUser = await User.findOne({ email });
   if (existingUser) throw new Error('User already registered.');
 
+  const computedFullName =
+    fullName || (name ? name : `${firstName} ${lastName}`.trim());
+
   const newUser = new User({
-    name,
+    // names
+    name: name || computedFullName,
+    firstName: firstName || (name ? name.split(' ')[0] : ''),
+    lastName: lastName || (name ? name.split(' ').slice(1).join(' ') : ''),
+    fullName: computedFullName,
+
+    // auth
     email,
     password,
+
+    // optional existing fields
+    username,
+    dob,
+    gender,
+    bio,
+    address,
+
+    // professional
+    phoneNumber,
+    jobTitle,
+    companyName,
+    websiteUrl,
+    industryExperience,
+    languagesSpoken,
+
+    // media
+    profilePhoto,
+    companyLogo,
+    bannerImage,
+    // keep profileImage for compatibility; fall back to provided profilePhoto
+    profileImage: payload.profileImage || profilePhoto || '',
+
+    // social/content
+    socialLinks,
+    preferredToneOfVoice,
+    postingFrequency,
+
+    // yacht business
+    yachtTypesHandled,
+    averagePriceRange,
+    primaryRegionsServed,
+    listingPlatformsUsed,
+
+    // portfolio
+    customHeadline,
+    portfolioPageSlug,
+    qrCodeUrl
   });
 
   const user = await newUser.save();
 
-  const { _id, role, profileImage } = user;
-  return { _id, name, email, role,  profileImage };
+  const { _id, role } = user;
+  return {
+    _id,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    fullName: user.fullName,
+    email: user.email,
+    role,
+    profileImage: user.profileImage
+  };
 };
-
 
 export const loginUserService = async ({ email, password }) => {
   if (!email || !password) throw new Error('Email and password are required');
 
-  const user = await User.findOne({ email }).select("_id firstName lastName email role profileImage");
+  const user = await User.findOne({ email }).select(
+    '_id firstName lastName email role profileImage'
+  );
 
   if (!user) throw new Error('User not found');
 
@@ -46,9 +137,8 @@ export const loginUserService = async ({ email, password }) => {
   user.refreshToken = user.generateRefreshToken(payload);
   await user.save({ validateBeforeSave: false });
 
-  return data
+  return data;
 };
-
 
 export const refreshAccessTokenService = async (refreshToken) => {
   if (!refreshToken) throw new Error('No refresh token provided');
@@ -57,24 +147,24 @@ export const refreshAccessTokenService = async (refreshToken) => {
 
   if (!user) throw new Error('Invalid refresh token');
 
-  const decoded = jwt.verify(refreshToken, refreshTokenSecrete)
+  const decoded = jwt.verify(refreshToken, refreshTokenSecrete);
 
-  if (!decoded || decoded._id !== user._id.toString()) throw new Error('Invalid refresh token')
+  if (!decoded || decoded._id !== user._id.toString())
+    throw new Error('Invalid refresh token');
 
-  const payload = { _id: user._id , role: user.role }
+  const payload = { _id: user._id, role: user.role };
 
   const accessToken = user.generateAccessToken(payload);
   const newRefreshToken = user.generateRefreshToken(payload);
 
   user.refreshToken = newRefreshToken;
-  await user.save({ validateBeforeSave: false })
+  await user.save({ validateBeforeSave: false });
 
   return {
     accessToken,
     refreshToken: newRefreshToken
-  }
+  };
 };
-
 
 export const forgetPasswordService = async (email) => {
   if (!email) throw new Error('Email is required');
@@ -95,12 +185,11 @@ export const forgetPasswordService = async (email) => {
   await sendEmail({
     to: email,
     subject: 'Password Reset OTP',
-    html: verificationCodeTemplate(otp),
+    html: verificationCodeTemplate(otp)
   });
 
   return;
 };
-
 
 export const verifyCodeService = async ({ email, otp }) => {
   if (!email || !otp) throw new Error('Email and otp are required');
@@ -120,13 +209,12 @@ export const verifyCodeService = async ({ email, otp }) => {
   user.otp = null;
   user.otpExpires = null;
   user.otpVerified = true;
-  user.resetExpires = new Date(Date.now() + 15 * 60 * 1000); 
+  user.resetExpires = new Date(Date.now() + 15 * 60 * 1000);
 
   await user.save({ validateBeforeSave: false });
 
   return;
 };
-
 
 export const resetPasswordService = async ({ email, newPassword }) => {
   if (!email || !newPassword)
@@ -152,9 +240,13 @@ export const resetPasswordService = async ({ email, newPassword }) => {
   return;
 };
 
-
-export const changePasswordService = async ({ userId, oldPassword, newPassword }) => {
-  if (!userId || !oldPassword || !newPassword) throw new Error('User id, old password and new password are required');
+export const changePasswordService = async ({
+  userId,
+  oldPassword,
+  newPassword
+}) => {
+  if (!userId || !oldPassword || !newPassword)
+    throw new Error('User id, old password and new password are required');
 
   const user = await User.findById(userId);
   if (!user) throw new Error('User not found');
