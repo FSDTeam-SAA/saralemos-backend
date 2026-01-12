@@ -1,5 +1,6 @@
 import { generateResponse } from '../../lib/responseFormate.js';
 import User from './auth.model.js';
+import { cloudinaryUpload } from '../../lib/cloudinaryUpload.js';
 import {
   loginUserService,
   refreshAccessTokenService,
@@ -12,8 +13,30 @@ import {
 
 export const registerUser = async (req, res, next) => {
   try {
-    // Pass full body; service will map/whitelist fields
-    const data = await registerUserService(req.body);
+    // Prepare payload from body
+    const payload = { ...req.body };
+
+    // If files are uploaded, push them to Cloudinary and map URLs
+    const fileFields = ['profilePhoto', 'companyLogo', 'bannerImage'];
+    if (req.files) {
+      for (const field of fileFields) {
+        const files = req.files[field];
+        if (files && files.length > 0) {
+          const file = files[0];
+          const publicId = `${field}-${Date.now()}`;
+          const folder = 'users';
+          const uploaded = await cloudinaryUpload(file.path, publicId, folder);
+          const url = uploaded?.secure_url || uploaded?.url || '';
+          payload[field] = url;
+          // keep compatibility for downstream consumers using profileImage
+          if (field === 'profilePhoto' && url && !payload.profileImage) {
+            payload.profileImage = url;
+          }
+        }
+      }
+    }
+
+    const data = await registerUserService(payload);
     generateResponse(res, 201, true, 'Registered user successfully!', data);
   } catch (error) {
     if (error.message === 'User already registered.') {
