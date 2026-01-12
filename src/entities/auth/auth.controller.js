@@ -16,21 +16,105 @@ export const registerUser = async (req, res, next) => {
     // Prepare payload from body
     const payload = { ...req.body };
 
+    // Parse arrays from form-data (e.g., languagesSpoken[]=English)
+    const arrayFields = [
+      'languagesSpoken',
+      'preferredToneOfVoice',
+      'yachtTypesHandled',
+      'primaryRegionsServed',
+      'listingPlatformsUsed'
+    ];
+    arrayFields.forEach((field) => {
+      if (payload[`${field}[]`]) {
+        const values = Array.isArray(payload[`${field}[]`])
+          ? payload[`${field}[]`]
+          : [payload[`${field}[]`]];
+        payload[field] = values;
+        delete payload[`${field}[]`];
+      }
+    });
+
+    // Parse nested socialLinks object from form-data (e.g., socialLinks[linkedin])
+    const socialLinksObj = {};
+    const socialKeys = [
+      'linkedin',
+      'instagram',
+      'facebook',
+      'youtube',
+      'tiktok'
+    ];
+    socialKeys.forEach((key) => {
+      const formKey = `socialLinks[${key}]`;
+      if (payload[formKey]) {
+        socialLinksObj[key] = payload[formKey];
+        delete payload[formKey];
+      }
+    });
+    if (Object.keys(socialLinksObj).length > 0) {
+      payload.socialLinks = socialLinksObj;
+    }
+
+    // Parse address object if provided
+    if (
+      payload['address[country]'] ||
+      payload['address[cityState]'] ||
+      payload['address[roadArea]'] ||
+      payload['address[postalCode]'] ||
+      payload['address[taxId]']
+    ) {
+      payload.address = {
+        country: payload['address[country]'] || '',
+        cityState: payload['address[cityState]'] || '',
+        roadArea: payload['address[roadArea]'] || '',
+        postalCode: payload['address[postalCode]'] || '',
+        taxId: payload['address[taxId]'] || ''
+      };
+      delete payload['address[country]'];
+      delete payload['address[cityState]'];
+      delete payload['address[roadArea]'];
+      delete payload['address[postalCode]'];
+      delete payload['address[taxId]'];
+    }
+
     // If files are uploaded, push them to Cloudinary and map URLs
     const fileFields = ['profilePhoto', 'companyLogo', 'bannerImage'];
     if (req.files) {
       for (const field of fileFields) {
         const files = req.files[field];
         if (files && files.length > 0) {
-          const file = files[0];
-          const publicId = `${field}-${Date.now()}`;
-          const folder = 'users';
-          const uploaded = await cloudinaryUpload(file.path, publicId, folder);
-          const url = uploaded?.secure_url || uploaded?.url || '';
-          payload[field] = url;
-          // keep compatibility for downstream consumers using profileImage
-          if (field === 'profilePhoto' && url && !payload.profileImage) {
-            payload.profileImage = url;
+          try {
+            const file = files[0];
+            const publicId = `${field}-${Date.now()}`;
+            const folder = 'users';
+            const uploaded = await cloudinaryUpload(
+              file.path,
+              publicId,
+              folder
+            );
+
+            // Check if upload was successful
+            if (
+              uploaded &&
+              typeof uploaded === 'object' &&
+              (uploaded.secure_url || uploaded.url)
+            ) {
+              const url = uploaded.secure_url || uploaded.url;
+              payload[field] = url;
+              // keep compatibility for downstream consumers using profileImage
+              if (field === 'profilePhoto' && url && !payload.profileImage) {
+                payload.profileImage = url;
+              }
+            } else {
+              console.warn(
+                `Cloudinary upload failed or returned invalid response for ${field}:`,
+                uploaded
+              );
+            }
+          } catch (uploadError) {
+            console.error(
+              `Error uploading ${field} to Cloudinary:`,
+              uploadError
+            );
           }
         }
       }
@@ -39,6 +123,7 @@ export const registerUser = async (req, res, next) => {
     const data = await registerUserService(payload);
     generateResponse(res, 201, true, 'Registered user successfully!', data);
   } catch (error) {
+    console.error('Register error:', error);
     if (error.message === 'User already registered.') {
       generateResponse(res, 400, false, 'User already registered', null);
     } else if (error.message === 'Name, email and password are required') {
