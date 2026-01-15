@@ -32,6 +32,14 @@ app.use(mongoSanitize());
 
 // Set up logging middleware
 app.use(morgan('combined'));
+app.use(cors({
+  origin: true, // reflect request origin
+  credentials: true,
+  methods: ["GET","POST","PUT","DELETE","PATCH","OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
+
+app.options("*", cors());
 
 // Set up body parsing middleware
 app.use(express.json({ limit: '10000kb' }));
