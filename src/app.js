@@ -25,17 +25,18 @@ const app = express();
 
 // Set up security middleware
 app.use(helmet());
-app.use(cors({
-  origin: '*',
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', "PATCH",'OPTIONS'],
-}));
+
 app.use(xssClean());
 app.use(mongoSanitize());
 
 
 // Set up logging middleware
 app.use(morgan('combined'));
+app.use(cors({
+  origin: '*',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', "PATCH",'OPTIONS'],
+}));
 
 // Set up body parsing middleware
 app.use(express.json({ limit: '10000kb' }));
