@@ -45,7 +45,7 @@ router.delete("/upload-file", verifyToken, deleteUserPDFController);
 
 // admin user management
 router.get("/:id", verifyToken, userAdminMiddleware, adminGetUserByIdController);
-router.put("/:id", verifyToken, adminMiddleware, adminUpdateUserController);
+router.put("/:id", verifyToken, userAdminMiddleware, adminUpdateUserController);
 router.delete("/:id", verifyToken, adminMiddleware, adminDeleteUserController);
 
 

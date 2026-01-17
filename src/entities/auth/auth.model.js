@@ -213,6 +213,7 @@ const UserSchema = new mongoose.Schema(
       default: ''
     },
 
+
     hasActiveSubscription: { type: Boolean, default: false },
     subscriptionExpireDate: { type: Date, default: null },
     blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],

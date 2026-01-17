@@ -1,5 +1,4 @@
-// import csurf from 'csurf';
-// app.use(csurf({ cookie: true }));
+
 
 import express from 'express';
 import helmet from 'helmet';
