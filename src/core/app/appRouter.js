@@ -14,7 +14,7 @@ router.use('/v1/ai',adRoutes)
 router.use('/v1/connect',connectRoutes)
 router.use("/v1/final",campaignRoutes)
 router.use("/v1/listing",listingRoutes)
-
+router.use('/v1/subscription',)
 
 
 export default router;
