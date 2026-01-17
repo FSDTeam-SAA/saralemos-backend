@@ -25,19 +25,21 @@ const app = express();
 
 // Set up security middleware
 app.use(helmet());
-app.use(
-    cors({
-      origin: true,
-      credentials: true,
-      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    })
-  );
+
 app.use(xssClean());
 app.use(mongoSanitize());
 
 
 // Set up logging middleware
 app.use(morgan('combined'));
+app.use(cors({
+  origin: true, // reflect request origin
+  credentials: true,
+  methods: ["GET","POST","PUT","DELETE","PATCH","OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
+
+app.options("*", cors());
 
 // Set up body parsing middleware
 app.use(express.json({ limit: '10000kb' }));
@@ -53,6 +55,14 @@ app.use("/uploads", express.static(uploadPath));
 
 // Set up API routes
 app.use('/api', appRouter);
+
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+  });
+});
 
 // Set up 404 error middleware
 app.use(notFound);
