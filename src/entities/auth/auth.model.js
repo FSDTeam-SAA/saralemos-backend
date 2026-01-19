@@ -128,16 +128,16 @@ const UserSchema = new mongoose.Schema(
     socialLinks: { type: SocialLinksSchema, default: () => ({}) },
     preferredToneOfVoice: {
       type: [String],
-      enum: [
-        'Luxury',
-        'Professional',
-        'Friendly',
-        'Technical',
-        'Sophisticated',
-        'Approachable',
-        'Expert',
-        'Conversational'
-      ],
+      // enum: [
+      //   'Luxury',
+      //   'Professional',
+      //   'Friendly',
+      //   'Technical',
+      //   'Sophisticated',
+      //   'Approachable',
+      //   'Expert',
+      //   'Conversational'
+      // ],
       default: []
     },
     postingFrequency: { type: String, default: '' },
@@ -148,16 +148,6 @@ const UserSchema = new mongoose.Schema(
     yachtTypesHandled: { type: [String], default: [] },
     averagePriceRange: {
       type: String,
-      enum: [
-        'Under 100K',
-        '100K-500K',
-        '500K-1M',
-        '1M-5M',
-        '5M-10M',
-        '10M-25M',
-        '25M-50M',
-        '50M+'
-      ],
       default: null
     },
     primaryRegionsServed: { type: [String], default: [] },
