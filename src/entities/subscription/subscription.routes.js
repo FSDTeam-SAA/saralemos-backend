@@ -13,8 +13,12 @@ import {
   getPaymentHistory,
   verifyPaymentStatus
 } from './payment.controller.js';
+import { getDashboardOverview } from './analytics.controller.js';
 
 const router = express.Router();
+
+// Dashboard Analytics Route
+router.get('/dashboard/overview', getDashboardOverview);
 
 // Subscription Plan Routes
 router.post('/create', createPlan);
