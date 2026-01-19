@@ -7,6 +7,7 @@ import mongoose from "mongoose";
 const cmsSchema = new mongoose.Schema(
   {
     title: { type: String },
+    subtitle:{type:String},
     section: {
       type: String,
       required: true,
