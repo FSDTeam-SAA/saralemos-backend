@@ -1,6 +1,7 @@
 import { generateResponse } from '../../lib/responseFormate.js';
 import User from '../auth/auth.model.js';
 import Payment from './payment.model.js';
+import { YachtListing } from '../listings/listing.model';
 
 export const getDashboardOverview = async (req, res) => {
   try {
@@ -11,6 +12,9 @@ export const getDashboardOverview = async (req, res) => {
     const activeSubscriptions = await User.countDocuments({
       hasActiveSubscription: true
     });
+
+    // Total yacht listings
+    const totalListings = await YachtListing.countDocuments();
 
     // Calculate monthly revenue
     // Get the first and last day of the current month
@@ -55,6 +59,7 @@ export const getDashboardOverview = async (req, res) => {
     const dashboardData = {
       totalUsers,
       activeSubscriptions,
+      totalListings,
       monthlyRevenue: {
         amount: monthlyRevenue,
         currency: 'usd',
