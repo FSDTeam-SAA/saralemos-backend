@@ -1,7 +1,7 @@
 import { generateResponse } from '../../lib/responseFormate.js';
 import User from '../auth/auth.model.js';
 import Payment from './payment.model.js';
-import { YachtListing } from '../listings/listing.model';
+import { YachtListing } from '../listings/listing.model.js';
 
 export const getDashboardOverview = async (req, res) => {
   try {
