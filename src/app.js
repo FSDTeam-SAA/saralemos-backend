@@ -28,17 +28,40 @@ app.use(mongoSanitize());
 
 // Set up logging middleware
 app.use(morgan('combined'));
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  // add your prod domains too, e.g.:
+  // "https://your-frontend.com",
+];
+
 app.use(
   cors({
-    origin: true, // reflect request origin
+    origin: (origin, cb) => {
+      // allow non-browser requests (like Postman/curl) where origin is undefined
+      if (!origin) return cb(null, true);
+
+      if (allowedOrigins.includes(origin)) return cb(null, true);
+
+      return cb(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
-app.options('*', cors());
-
+// handle preflight for all routes with the same config
+app.options("*", cors({
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.includes(origin)) return cb(null, true);
+    return cb(new Error(`CORS blocked for origin: ${origin}`));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
 // Set up body parsing middleware
 app.use(express.json({ limit: '10000kb' }));
 app.use(express.urlencoded({ extended: true }));
