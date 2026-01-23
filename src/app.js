@@ -33,6 +33,7 @@ const allowedOrigins = [
   "https://sara-lemos-client-dashboard.vercel.app",
   "https://saralemos1978-website.vercel.app",
   "http://127.0.0.1:3000",
+  "https://saralemos-admin-dasboard.vercel.app"
   // add your prod domains too, e.g.:
   // "https://your-frontend.com",
 ];
