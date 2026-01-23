@@ -196,6 +196,8 @@ const UserSchema = new mongoose.Schema(
       default: null
     },
 
+
+
     // isVerified moved to System Flags above (kept for compatibility)
 
     refreshToken: {
@@ -207,7 +209,14 @@ const UserSchema = new mongoose.Schema(
     hasActiveSubscription: { type: Boolean, default: false },
     subscriptionExpireDate: { type: Date, default: null },
     blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-    language: { type: String, default: 'en' }
+    language: { type: String, default: 'en' },
+    
+
+
+      pagePictureUrl: { type: String, default: "" },     // Page profile image
+    followersCount: { type: Number, default: null },   // followers_count (if available)
+    fanCount: { type: Number, default: null },         // likes count
+    totalPosts: { type: Number, default: null },  
   },
   { timestamps: true }
 );
