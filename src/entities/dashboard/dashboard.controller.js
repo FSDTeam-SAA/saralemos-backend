@@ -4,7 +4,8 @@ import {
   getRevenueTrend,
   getDashboardData,
   getUserAnalyticsByDateRange,
-  getRevenueTrendByDateRange
+  getRevenueTrendByDateRange,
+  getClientDashboardAnalytics
 } from './dashboard.service.js';
 
 /**
@@ -188,6 +189,32 @@ export const getRevenueTrendByDateRangeController = async (req, res) => {
       true,
       'Revenue trend retrieved successfully',
       revenueTrend
+    );
+  } catch (err) {
+    generateResponse(res, 500, false, err.message);
+  }
+};
+
+/**
+ * Client dashboard analytics
+ * Returns user's listings, campaigns, plus demo metrics
+ */
+export const getClientDashboardAnalyticsController = async (req, res) => {
+  try {
+    const userId = req.user?.id || req.params.userId;
+
+    if (!userId) {
+      return generateResponse(res, 400, false, 'User ID is required');
+    }
+
+    const data = await getClientDashboardAnalytics(userId);
+
+    generateResponse(
+      res,
+      200,
+      true,
+      'Client dashboard analytics retrieved successfully',
+      data
     );
   } catch (err) {
     generateResponse(res, 500, false, err.message);

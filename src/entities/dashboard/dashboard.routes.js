@@ -4,7 +4,8 @@ import {
   getRevenueTrendController,
   getDashboardDataController,
   getUserAnalyticsByDateRangeController,
-  getRevenueTrendByDateRangeController
+  getRevenueTrendByDateRangeController,
+  getClientDashboardAnalyticsController
 } from './dashboard.controller.js';
 
 const router = express.Router();
@@ -47,5 +48,12 @@ router.get('/user-analytics-range', getUserAnalyticsByDateRangeController);
  * @query   endDate - End date (ISO format)
  */
 router.get('/revenue-trend-range', getRevenueTrendByDateRangeController);
+
+/**
+ * @route   GET /v1/dashboard/client
+ * @desc    Client dashboard: listings, campaigns, demo metrics
+ * @access  Private (requires auth middleware to set req.user)
+ */
+router.get('/client/:userId', getClientDashboardAnalyticsController);
 
 export default router;

@@ -123,6 +123,7 @@ export const handleSuccessfulPayment = async (session) => {
     const user = await User.findByIdAndUpdate(
       userId,
       {
+        subscriptionPlanId: planId,
         hasActiveSubscription: true,
         subscriptionExpireDate: expiryDate
       },

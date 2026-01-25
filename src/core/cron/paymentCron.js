@@ -51,6 +51,7 @@ export const startPaymentStatusCron = () => {
 
             // Update user subscription status
             await User.findByIdAndUpdate(payment.userId, {
+              subscriptionPlanId: payment.subscriptionPlanId,
               hasActiveSubscription: true,
               subscriptionExpireDate: expiryDate
             });

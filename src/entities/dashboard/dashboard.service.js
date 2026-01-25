@@ -1,5 +1,7 @@
 import User from '../auth/auth.model.js';
 import Payment from '../subscription/payment.model.js';
+import { YachtListing } from '../listings/listing.model.js';
+import FacebookCampaign from '../ManageAdd/campaign.Model.js';
 
 /**
  * Get monthly user analytics (count of users created each month)
@@ -237,5 +239,41 @@ export const getRevenueTrendByDateRange = async (startDate, endDate) => {
     return revenueTrend;
   } catch (error) {
     throw new Error(`Failed to fetch revenue trend: ${error.message}`);
+  }
+};
+
+/**
+ * Client dashboard overview
+ * - All listings created by the user
+ * - All campaigns created by the user
+ * - Demo metrics for content generated and engagement rate
+ */
+export const getClientDashboardAnalytics = async (userId) => {
+  try {
+    const [listings, campaigns] = await Promise.all([
+      YachtListing.find({ createdBy: userId })
+        .select('yachtName Price isActive createdAt')
+        .sort({ createdAt: -1 }),
+      FacebookCampaign.find({ userId })
+        .select('name objective status createdAt')
+        .sort({ createdAt: -1 })
+    ]);
+
+    // Demo-only metrics for now
+    const contentGenerated = listings.length * 3; // placeholder metric
+    const engagementRate = 0.18; // 18% placeholder
+
+    return {
+      listings,
+      campaigns,
+      counts: {
+        listings: listings.length,
+        campaigns: campaigns.length,
+        contentGenerated,
+        engagementRate
+      }
+    };
+  } catch (error) {
+    throw new Error(`Failed to fetch client dashboard data: ${error.message}`);
   }
 };
