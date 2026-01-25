@@ -30,6 +30,7 @@ app.use(mongoSanitize());
 app.use(morgan('combined'));
 const allowedOrigins = [
   "http://localhost:3000",
+  "https://saralemos-backend.onrender.com",
   "https://sara-lemos-client-dashboard.vercel.app",
   "https://saralemos1978-website.vercel.app",
   "http://127.0.0.1:3000",
