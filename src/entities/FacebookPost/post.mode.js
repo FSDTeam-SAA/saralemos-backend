@@ -10,6 +10,9 @@ const socialPostSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  listingName: {
+    type: String
+  },
 
   // --- CONTENT ---
   content: {

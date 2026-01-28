@@ -32,6 +32,7 @@ export const handleFinalizePost = async (req, res) => {
     const postType = req.body.postType;
     const message = content.message;
     const scheduledTime = req.body.scheduledTime;
+    const listingName = req.body.listingName;
 
     const platforms =
       typeof req.body.platforms === 'string'
@@ -83,6 +84,7 @@ export const handleFinalizePost = async (req, res) => {
       const draft = new SocialPost({
         userId,
         pageId,
+        listingName,
         postType,
         platforms,
         content: { message },
@@ -165,6 +167,7 @@ export const handleFinalizePost = async (req, res) => {
     const finalPost = new SocialPost({
       userId,
       pageId,
+      listingName,
       postType,
       platforms,
       content: { message },
