@@ -193,3 +193,453 @@ export const handleFinalizePost = async (req, res) => {
     });
   }
 };
+
+/**
+ * @desc    Get all posts for the logged-in user with filters
+ * @route   GET /api/posts
+ * @access  Private
+ */
+export const getAllPosts = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { status, platform, postType, page = 1, limit = 20 } = req.query;
+
+    // Build query
+    const query = { userId };
+    if (status) query.status = status;
+    if (postType) query.postType = postType;
+    if (platform) query.platforms = platform;
+
+    // Execute query with pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const posts = await SocialPost.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
+
+    const total = await SocialPost.countDocuments(query);
+
+    return res.json({
+      success: true,
+      data: posts,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
+  } catch (err) {
+    console.error('Get All Posts Error:', err.message);
+    res.status(500).json({
+      error: 'Failed to fetch posts',
+      detail: err.message
+    });
+  }
+};
+
+/**
+ * @desc    Get single post by ID
+ * @route   GET /api/posts/:id
+ * @access  Private
+ */
+export const getPostById = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { id } = req.params;
+
+    const post = await SocialPost.findOne({ _id: id, userId }).lean();
+
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    return res.json({
+      success: true,
+      data: post
+    });
+  } catch (err) {
+    console.error('Get Post By ID Error:', err.message);
+    res.status(500).json({
+      error: 'Failed to fetch post',
+      detail: err.message
+    });
+  }
+};
+
+/**
+ * @desc    Update a draft post
+ * @route   PUT /api/posts/:id
+ * @access  Private
+ */
+export const updatePost = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { id } = req.params;
+
+    // Find the post
+    const post = await SocialPost.findOne({ _id: id, userId });
+
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    // Only allow updates to DRAFT or FAILED posts
+    if (post.status !== 'DRAFT' && post.status !== 'FAILED') {
+      return res.status(400).json({
+        error: 'Can only update DRAFT or FAILED posts'
+      });
+    }
+
+    // Parse content if stringified
+    let content = req.body.content;
+    if (typeof content === 'string') {
+      try {
+        content = JSON.parse(content);
+      } catch (e) {
+        return res.status(400).json({ error: 'Invalid content format' });
+      }
+    }
+
+    // Handle media uploads
+    let mediaUrls = post.media.map((m) => m.url);
+
+    if (req.files && req.files.length > 0) {
+      // Upload new files to Cloudinary
+      try {
+        const uploadPromises = req.files.map((file, index) =>
+          cloudinaryUpload(
+            file.path,
+            `facebook_post_${Date.now()}_${index}`,
+            'facebook_posts'
+          )
+        );
+        const uploadResults = await Promise.all(uploadPromises);
+        mediaUrls = uploadResults.map((result) => result.secure_url);
+      } catch (uploadError) {
+        console.error('Cloudinary upload failed:', uploadError);
+        return res.status(500).json({
+          error: 'Failed to upload images to Cloudinary'
+        });
+      }
+    } else if (req.body.mediaUrls) {
+      // Use provided media URLs
+      mediaUrls =
+        typeof req.body.mediaUrls === 'string'
+          ? JSON.parse(req.body.mediaUrls)
+          : req.body.mediaUrls;
+    }
+
+    // Determine media type
+    const isVideo = mediaUrls[0]?.match(/\.(mp4|mov|avi)$/i);
+
+    // Update fields
+    if (content?.message) post.content.message = content.message;
+    if (req.body.postType) post.postType = req.body.postType;
+    if (req.body.platforms) {
+      post.platforms =
+        typeof req.body.platforms === 'string'
+          ? JSON.parse(req.body.platforms)
+          : req.body.platforms;
+    }
+    if (req.body.scheduledTime) {
+      post.scheduledPublishTime = req.body.scheduledTime;
+    }
+    if (mediaUrls.length > 0) {
+      post.media = mediaUrls.map((url) => ({
+        url,
+        mediaType: isVideo ? 'VIDEO' : 'IMAGE'
+      }));
+    }
+
+    post.updatedAt = Date.now();
+    await post.save();
+
+    return res.json({
+      success: true,
+      message: 'Post updated successfully',
+      data: post
+    });
+  } catch (err) {
+    console.error('Update Post Error:', err.message);
+    res.status(500).json({
+      error: 'Failed to update post',
+      detail: err.message
+    });
+  }
+};
+
+/**
+ * @desc    Delete a post (only DRAFT or FAILED)
+ * @route   DELETE /api/posts/:id
+ * @access  Private
+ */
+export const deletePost = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { id } = req.params;
+
+    const post = await SocialPost.findOne({ _id: id, userId });
+
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    // Only allow deletion of DRAFT or FAILED posts
+    if (post.status !== 'DRAFT' && post.status !== 'FAILED') {
+      return res.status(400).json({
+        error: 'Can only delete DRAFT or FAILED posts'
+      });
+    }
+
+    await SocialPost.deleteOne({ _id: id });
+
+    return res.json({
+      success: true,
+      message: 'Post deleted successfully'
+    });
+  } catch (err) {
+    console.error('Delete Post Error:', err.message);
+    res.status(500).json({
+      error: 'Failed to delete post',
+      detail: err.message
+    });
+  }
+};
+
+/**
+ * @desc    Get real-time status of a post by checking Facebook API
+ * @route   GET /api/posts/:id/status
+ * @access  Private
+ */
+export const getPostStatus = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { id } = req.params;
+
+    const post = await SocialPost.findOne({ _id: id, userId });
+
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    // If it's a draft, no need to check Facebook
+    if (post.status === 'DRAFT') {
+      return res.json({
+        success: true,
+        data: {
+          status: 'DRAFT',
+          message: 'This is a draft post, not yet published'
+        }
+      });
+    }
+
+    // Get user's Facebook access token
+    const user = await User.findById(userId);
+    const page = user.facebookBusinesses
+      .flatMap((b) => b.pages)
+      .find((p) => p.pageId === post.pageId);
+
+    if (!page) {
+      return res.status(400).json({ error: 'Facebook page not found' });
+    }
+
+    const token = page.pageAccessToken;
+    const statusData = {};
+
+    // Check Facebook status
+    if (
+      post.platforms.includes('facebook') &&
+      post.platformData?.facebook?.postId
+    ) {
+      try {
+        const fbResponse = await axios.get(
+          FB_API(post.platformData.facebook.postId),
+          {
+            params: {
+              access_token: token,
+              fields: 'id,message,created_time,is_published,status_type'
+            }
+          }
+        );
+
+        statusData.facebook = {
+          status: 'PUBLISHED',
+          isVerified: true,
+          postId: fbResponse.data.id,
+          createdTime: fbResponse.data.created_time,
+          isPublished: fbResponse.data.is_published
+        };
+
+        // Update post with verified status
+        post.platformData.facebook.status = 'PUBLISHED';
+        post.platformData.facebook.isVerified = true;
+        post.platformData.facebook.lastChecked = new Date();
+      } catch (fbError) {
+        const errorMsg =
+          fbError.response?.data?.error?.message || fbError.message;
+        statusData.facebook = {
+          status: 'ERROR',
+          isVerified: false,
+          errorMessage: errorMsg
+        };
+
+        // Update post with error
+        post.platformData.facebook.status = 'ERROR';
+        post.platformData.facebook.errorMessage = errorMsg;
+        post.platformData.facebook.lastChecked = new Date();
+      }
+    }
+
+    // Check Instagram status
+    if (
+      post.platforms.includes('instagram') &&
+      post.platformData?.instagram?.mediaId
+    ) {
+      try {
+        const igResponse = await axios.get(
+          FB_API(post.platformData.instagram.mediaId),
+          {
+            params: {
+              access_token: token,
+              fields: 'id,media_type,media_url,timestamp,caption'
+            }
+          }
+        );
+
+        statusData.instagram = {
+          status: 'PUBLISHED',
+          isVerified: true,
+          mediaId: igResponse.data.id,
+          timestamp: igResponse.data.timestamp
+        };
+
+        // Update post with verified status
+        post.platformData.instagram.status = 'PUBLISHED';
+        post.platformData.instagram.isVerified = true;
+        post.platformData.instagram.lastChecked = new Date();
+      } catch (igError) {
+        const errorMsg =
+          igError.response?.data?.error?.message || igError.message;
+        statusData.instagram = {
+          status: 'ERROR',
+          isVerified: false,
+          errorMessage: errorMsg
+        };
+
+        // Update post with error
+        post.platformData.instagram.status = 'ERROR';
+        post.platformData.instagram.errorMessage = errorMsg;
+        post.platformData.instagram.lastChecked = new Date();
+      }
+    }
+
+    // Update status check metadata
+    post.lastStatusCheck = new Date();
+    post.statusCheckCount = (post.statusCheckCount || 0) + 1;
+    post.updatedAt = Date.now();
+
+    await post.save();
+
+    return res.json({
+      success: true,
+      data: {
+        postId: post._id,
+        status: post.status,
+        platforms: statusData,
+        lastChecked: post.lastStatusCheck,
+        checkCount: post.statusCheckCount
+      }
+    });
+  } catch (err) {
+    console.error('Get Post Status Error:', err.message);
+    res.status(500).json({
+      error: 'Failed to check post status',
+      detail: err.message
+    });
+  }
+};
+
+/**
+ * @desc    Verify post status for cron job (background task)
+ * @param   {Object} post - Post document
+ * @param   {String} token - Facebook access token
+ */
+export const verifyPostStatusBackground = async (post, token) => {
+  const updates = {};
+
+  try {
+    // Check Facebook status
+    if (
+      post.platforms.includes('facebook') &&
+      post.platformData?.facebook?.postId
+    ) {
+      try {
+        const fbResponse = await axios.get(
+          FB_API(post.platformData.facebook.postId),
+          {
+            params: {
+              access_token: token,
+              fields: 'id,is_published,created_time'
+            }
+          }
+        );
+
+        updates['platformData.facebook.status'] = 'PUBLISHED';
+        updates['platformData.facebook.isVerified'] = true;
+        updates['platformData.facebook.lastChecked'] = new Date();
+      } catch (fbError) {
+        const errorMsg =
+          fbError.response?.data?.error?.message || fbError.message;
+        updates['platformData.facebook.status'] = 'ERROR';
+        updates['platformData.facebook.errorMessage'] = errorMsg;
+        updates['platformData.facebook.lastChecked'] = new Date();
+      }
+    }
+
+    // Check Instagram status
+    if (
+      post.platforms.includes('instagram') &&
+      post.platformData?.instagram?.mediaId
+    ) {
+      try {
+        const igResponse = await axios.get(
+          FB_API(post.platformData.instagram.mediaId),
+          {
+            params: {
+              access_token: token,
+              fields: 'id,timestamp'
+            }
+          }
+        );
+
+        updates['platformData.instagram.status'] = 'PUBLISHED';
+        updates['platformData.instagram.isVerified'] = true;
+        updates['platformData.instagram.lastChecked'] = new Date();
+      } catch (igError) {
+        const errorMsg =
+          igError.response?.data?.error?.message || igError.message;
+        updates['platformData.instagram.status'] = 'ERROR';
+        updates['platformData.instagram.errorMessage'] = errorMsg;
+        updates['platformData.instagram.lastChecked'] = new Date();
+      }
+    }
+
+    // Update metadata
+    updates.lastStatusCheck = new Date();
+    updates.statusCheckCount = (post.statusCheckCount || 0) + 1;
+    updates.updatedAt = Date.now();
+
+    // Apply updates
+    await SocialPost.findByIdAndUpdate(post._id, { $set: updates });
+
+    return { success: true, postId: post._id };
+  } catch (err) {
+    console.error(
+      `Background verification failed for post ${post._id}:`,
+      err.message
+    );
+    return { success: false, postId: post._id, error: err.message };
+  }
+};

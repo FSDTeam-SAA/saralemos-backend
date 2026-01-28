@@ -28,9 +28,9 @@ export const generateAd = async (req, res) => {
     const contactText = contactInfo || 'No contact info provided';
 
     const prompt = String.raw`
-You are an expert social media ad copywriter for premium yacht marketing.
+You are an expert social media content creator for premium yacht marketing.
 
-Create engaging yacht marketing content based on:
+Create engaging Facebook/Instagram post content based on:
 - Tone: ${tone}
 - Post Type: ${postType}
 - Contact Info: ${contactText}
@@ -38,26 +38,30 @@ Create engaging yacht marketing content based on:
 - Call to Action: ${ctaText}
 - Platforms: ${platforms.join(', ')}
 
-Return ONLY this exact JSON structure:
+Return ONLY this exact JSON structure for complete social media posts:
 
 {
   "facebook": {
-    "headline": "3-8 word catchy headline",
-    "primaryText": "Engaging multi-line ad copy with \n line breaks",
+    "message": "Complete engaging Facebook post message with emojis, line breaks, call-to-action, and relevant hashtags. Include contact info if provided.",
     "imagePrompt": "Detailed description for generating a premium yacht image"
   },
   "instagram": {
-    "caption": "Instagram-optimized caption with emojis and hashtags",
+    "message": "Complete engaging Instagram caption with emojis, line breaks, call-to-action, and 5-10 relevant hashtags. Include contact info if provided.",
     "imagePrompt": "Detailed description for generating a premium yacht Instagram image"
   }
 }
 
 Rules:
-- Keep headline short and punchy (3-8 words)
-- primaryText should be engaging, multi-line copy using \n for line breaks
-- Instagram caption should include relevant emojis and hashtags
+- "message" should be a COMPLETE ready-to-post caption (150-300 words)
+- Include emojis throughout the message for engagement
+- Use \n for line breaks to format the post nicely
+- Include the call-to-action naturally in the message
+- Add contact info if provided (phone, email, website)
+- Facebook: Add 3-5 relevant hashtags at the end
+- Instagram: Add 5-10 relevant hashtags at the end
 - imagePrompt MUST describe a PREMIUM LUXURY YACHT scene (e.g., "luxury yacht sailing at sunset", "premium yacht deck with champagne", "sleek motor yacht in turquoise waters")
-- Always focus on luxury, elegance, and premium yacht lifestyle
+- Focus on luxury, elegance, and premium yacht lifestyle
+- Make it sound natural, engaging, and ready to publish
 - DO NOT return anything outside the JSON
 - DO NOT add explanations or comments
 - Output ONLY valid JSON

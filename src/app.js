@@ -14,6 +14,10 @@ import notFound from './core/middlewares/notFound.js';
 import { globalLimiter } from './lib/limit.js';
 import appRouter from './core/app/appRouter.js';
 import { startPaymentStatusCron } from './core/cron/paymentCron.js';
+import {
+  startPostStatusCron,
+  startPostCleanupCron
+} from './core/cron/postStatusCron.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,12 +33,12 @@ app.use(mongoSanitize());
 // Set up logging middleware
 app.use(morgan('combined'));
 const allowedOrigins = [
-  "http://localhost:3000",
-  "https://saralemos-backend.onrender.com",
-  "https://sara-lemos-client-dashboard.vercel.app",
-  "https://saralemos1978-website.vercel.app",
-  "http://127.0.0.1:3000",
-  "https://saralemos-admin-dasboard.vercel.app"
+  'http://localhost:3000',
+  'https://saralemos-backend.onrender.com',
+  'https://sara-lemos-client-dashboard.vercel.app',
+  'https://saralemos1978-website.vercel.app',
+  'http://127.0.0.1:3000',
+  'https://saralemos-admin-dasboard.vercel.app'
   // add your prod domains too, e.g.:
   // "https://your-frontend.com",
 ];
@@ -50,22 +54,25 @@ app.use(
       return cb(new Error(`CORS blocked for origin: ${origin}`));
     },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
   })
 );
 
 // handle preflight for all routes with the same config
-app.options("*", cors({
-  origin: (origin, cb) => {
-    if (!origin) return cb(null, true);
-    if (allowedOrigins.includes(origin)) return cb(null, true);
-    return cb(new Error(`CORS blocked for origin: ${origin}`));
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-}));
+app.options(
+  '*',
+  cors({
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true);
+      if (allowedOrigins.includes(origin)) return cb(null, true);
+      return cb(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+  })
+);
 // Set up body parsing middleware
 app.use(express.json({ limit: '10000kb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -97,6 +104,8 @@ app.use(errorHandler);
 
 // Start cron jobs
 startPaymentStatusCron();
+startPostStatusCron();
+startPostCleanupCron();
 
 logger.info('Middleware stack initialized');
 

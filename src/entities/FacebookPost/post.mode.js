@@ -1,27 +1,29 @@
 import mongoose from 'mongoose';
 
 const socialPostSchema = new mongoose.Schema({
-  userId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User', 
-    required: true 
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   },
-  pageId: { 
-    type: String, 
-    required: true 
+  pageId: {
+    type: String,
+    required: true
   },
-  
+
   // --- CONTENT ---
   content: {
     message: { type: String, required: true },
-    hashtags: [{ type: String }],
+    hashtags: [{ type: String }]
   },
 
   // --- MEDIA ---
-  media: [{
-    url: { type: String, required: true },
-    mediaType: { type: String, enum: ['IMAGE', 'VIDEO'], default: 'IMAGE' }
-  }],
+  media: [
+    {
+      url: { type: String, required: true },
+      mediaType: { type: String, enum: ['IMAGE', 'VIDEO'], default: 'IMAGE' }
+    }
+  ],
 
   // --- CONFIG ---
   postType: {
@@ -29,11 +31,13 @@ const socialPostSchema = new mongoose.Schema({
     enum: ['TEXT_ONLY', 'SINGLE_IMAGE', 'CAROUSEL', 'VIDEO'],
     required: true
   },
-  platforms: [{
-    type: String,
-    enum: ['facebook', 'instagram'],
-    required: true
-  }],
+  platforms: [
+    {
+      type: String,
+      enum: ['facebook', 'instagram'],
+      required: true
+    }
+  ],
 
   // --- STATUS ---
   // DRAFT: Saved in your DB, not sent to Meta
@@ -46,21 +50,39 @@ const socialPostSchema = new mongoose.Schema({
   },
 
   // This is only required if status becomes 'SCHEDULED'
-  scheduledPublishTime: { 
-    type: Date 
+  scheduledPublishTime: {
+    type: Date
   },
 
   // --- TRACKING ---
- platformData: {
-    facebook: { 
-      postId: String, 
-      status: { type: String, enum: ['SCHEDULED', 'PUBLISHED', 'ERROR'] }
+  platformData: {
+    facebook: {
+      postId: String,
+      status: {
+        type: String,
+        enum: ['SCHEDULED', 'PUBLISHED', 'ERROR', 'PENDING']
+      },
+      errorMessage: String,
+      lastChecked: Date,
+      isVerified: { type: Boolean, default: false }
     },
-    instagram: { 
-      mediaId: String, 
-      status: { type: String, enum: ['SCHEDULED', 'PUBLISHED', 'ERROR'] }
+    instagram: {
+      mediaId: String,
+      status: {
+        type: String,
+        enum: ['SCHEDULED', 'PUBLISHED', 'ERROR', 'PENDING']
+      },
+      errorMessage: String,
+      lastChecked: Date,
+      isVerified: { type: Boolean, default: false }
     }
   },
+
+  // --- STATUS VERIFICATION ---
+  lastStatusCheck: { type: Date },
+  statusCheckCount: { type: Number, default: 0 },
+  retryCount: { type: Number, default: 0 },
+  maxRetries: { type: Number, default: 3 },
 
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
