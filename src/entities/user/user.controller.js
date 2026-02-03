@@ -146,7 +146,7 @@ export const adminDeleteUserController = async (req, res) => {
 export const updateUserAllowedListingsController = async (req, res) => {
   try {
     const { id } = req.params;
-    const { allowedListings } = req.body;
+    let { allowedListings } = req.body;
 
     if (allowedListings === undefined || allowedListings === null) {
       return generateResponse(
@@ -158,7 +158,10 @@ export const updateUserAllowedListingsController = async (req, res) => {
       );
     }
 
-    if (typeof allowedListings !== 'number' || allowedListings < 0) {
+    // Convert to number if it's a string
+    allowedListings = Number(allowedListings);
+
+    if (isNaN(allowedListings) || allowedListings < 0) {
       return generateResponse(
         res,
         400,

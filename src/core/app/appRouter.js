@@ -9,7 +9,9 @@ import subscriptionRoutes from '../../entities/subscription/subscription.routes.
 import cmsRoutes from '../../entities/CMS/cms.routes.js';
 import dashboardRoutes from '../../entities/dashboard/dashboard.routes.js';
 import contactRoutes from '../../entities/contact/contact.routes.js';
-import postRoutes from '../../entities/FacebookPost/post.routes.js'
+import postRoutes from '../../entities/FacebookPost/post.routes.js';
+import testimonialRoutes from '../../entities/testimonial/testimonial.routes.js';
+
 const router = express.Router();
 
 router.use('/v1/auth', authRoutes);
@@ -23,5 +25,6 @@ router.use('/v1/cms', cmsRoutes);
 router.use('/v1/dashboard', dashboardRoutes);
 router.use('/v1/contact', contactRoutes);
 router.use('/v1/facebookPost', postRoutes);
+router.use('/v1/testimonial', testimonialRoutes);
 
 export default router;
