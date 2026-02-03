@@ -1,16 +1,16 @@
-import { extractPdfData } from "../../lib/adobeExtract.js";
-import { cloudinaryUpload } from "../../lib/cloudinaryUpload.js";
-import { matchListingFieldsWithGPT } from "../../lib/gptMathc.js";
-import { createFilter, createPaginationInfo } from "../../lib/pagination.js";
-import { saveImageBufferToDisk } from "../../lib/saveImageTemp.js";
-import { YachtListing } from "./listing.model.js";
-import fs from 'fs'
+import { extractPdfData } from '../../lib/adobeExtract.js';
+import { cloudinaryUpload } from '../../lib/cloudinaryUpload.js';
+import { matchListingFieldsWithGPT } from '../../lib/gptMathc.js';
+import { createFilter, createPaginationInfo } from '../../lib/pagination.js';
+import { saveImageBufferToDisk } from '../../lib/saveImageTemp.js';
+import { YachtListing } from './listing.model.js';
+import fs from 'fs';
 
 export const extractListingFromPdf = async (req, res) => {
   try {
-      // Check for uploaded PDF
+    // Check for uploaded PDF
     if (!req.files?.pdf?.[0]) {
-      return res.status(400).json({ message: "PDF file required" });
+      return res.status(400).json({ message: 'PDF file required' });
     }
 
     const pdfFile = req.files.pdf[0]; // Access the first file
@@ -20,22 +20,18 @@ export const extractListingFromPdf = async (req, res) => {
     const { extractedText, images } = await extractPdfData(pdfPath);
 
     // 2️⃣ GPT Field Matching
-    const matchedData =
-      await matchListingFieldsWithGPT(extractedText);
+    const matchedData = await matchListingFieldsWithGPT(extractedText);
 
     // 3️⃣ Upload extracted images to Cloudinary
     const imageUrls = [];
 
     for (const img of images) {
-      const tempPath = saveImageBufferToDisk(
-        img.buffer,
-        img.name
-      );
+      const tempPath = saveImageBufferToDisk(img.buffer, img.name);
 
       const uploaded = await cloudinaryUpload(
         tempPath,
         undefined,
-        "yacht-listings"
+        'yacht-listings'
       );
 
       if (uploaded?.secure_url) {
@@ -50,18 +46,15 @@ export const extractListingFromPdf = async (req, res) => {
       matchedData,
       images: imageUrls
     });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({
       success: false,
-      message: "PDF extraction failed",
+      message: 'PDF extraction failed',
       error: err.message
     });
   }
 };
-
-
 
 // Middleware to extract user from token (example placeholder)
 const getUserFromToken = (req) => req.user?._id; // assume auth middleware sets req.user
@@ -70,8 +63,29 @@ const getUserFromToken = (req) => req.user?._id; // assume auth middleware sets 
 export const createYachtListing = async (req, res) => {
   try {
     const userId = getUserFromToken(req);
-    if (!userId) return res.status(401).json({ message: "Unauthorized" });
- // 2️⃣ Parse nested JSON fields
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    // Check user's listing limit
+    const user = await req.user.populate('subscriptionPlanId');
+    const allowedListings = user.allowedListings || 5; // Default to 5 if not set
+
+    // Count existing active listings for this user
+    const existingListingsCount = await YachtListing.countDocuments({
+      createdBy: userId,
+      isActive: true
+    });
+
+    // Validate if user has reached their limit
+    if (existingListingsCount >= allowedListings) {
+      return res.status(403).json({
+        success: false,
+        message: `You have reached your listing limit of ${allowedListings}. Please upgrade your subscription to add more listings.`,
+        currentListings: existingListingsCount,
+        allowedListings: allowedListings
+      });
+    }
+
+    // 2️⃣ Parse nested JSON fields
     const constructions = req.body.constructions
       ? JSON.parse(req.body.constructions)
       : {};
@@ -80,57 +94,59 @@ export const createYachtListing = async (req, res) => {
       : undefined;
     const beam = req.body.beam ? JSON.parse(req.body.beam) : undefined;
     const draft = req.body.draft ? JSON.parse(req.body.draft) : undefined;
-    
 
     let imageUrls = [];
 
     // 1️⃣ Check for uploaded files first
-   if (req.files?.images?.length) {
-  for (const file of req.files.images) {
-    let tempPath;
-    if (file.buffer) {
-      tempPath = saveImageBufferToDisk(file.buffer, file.originalname);
-    } else if (file.path) {
-      tempPath = file.path;
-    }
-    const uploaded = await cloudinaryUpload(tempPath, undefined, "yacht-listings");
-    if (uploaded?.secure_url) imageUrls.push(uploaded.secure_url);
+    if (req.files?.images?.length) {
+      for (const file of req.files.images) {
+        let tempPath;
+        if (file.buffer) {
+          tempPath = saveImageBufferToDisk(file.buffer, file.originalname);
+        } else if (file.path) {
+          tempPath = file.path;
+        }
+        const uploaded = await cloudinaryUpload(
+          tempPath,
+          undefined,
+          'yacht-listings'
+        );
+        if (uploaded?.secure_url) imageUrls.push(uploaded.secure_url);
 
-    if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-  }
-} 
-// 2️⃣ If no files, parse images from body
-else if (req.body.images) {
-  if (typeof req.body.images === "string") {
-    try {
-      // Remove extra whitespace
-      const str = req.body.images.trim();
-
-      // Parse only valid JSON arrays
-      if (str.startsWith("[") && str.endsWith("]")) {
-        imageUrls = JSON.parse(str);
-      } else {
-        // Single URL sent as string
-        imageUrls = [str];
+        if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
       }
-    } catch (err) {
-      console.warn("Failed to parse images array:", err.message);
-      imageUrls = [];
     }
-  } else if (Array.isArray(req.body.images)) {
-    imageUrls = req.body.images;
-  }
-}
+    // 2️⃣ If no files, parse images from body
+    else if (req.body.images) {
+      if (typeof req.body.images === 'string') {
+        try {
+          // Remove extra whitespace
+          const str = req.body.images.trim();
 
-    
+          // Parse only valid JSON arrays
+          if (str.startsWith('[') && str.endsWith(']')) {
+            imageUrls = JSON.parse(str);
+          } else {
+            // Single URL sent as string
+            imageUrls = [str];
+          }
+        } catch (err) {
+          console.warn('Failed to parse images array:', err.message);
+          imageUrls = [];
+        }
+      } else if (Array.isArray(req.body.images)) {
+        imageUrls = req.body.images;
+      }
+    }
+
     // 3️⃣ Create the listing
     const listing = await YachtListing.create({
       ...req.body,
-        constructions,
+      constructions,
       lengthOverall,
       beam,
       draft,
-      
+
       images: imageUrls,
       createdBy: userId
     });
@@ -146,7 +162,7 @@ else if (req.body.images) {
 export const getAllYachtListings = async (req, res) => {
   try {
     const userId = req.user._id; // assume auth middleware sets req.user
-    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
     const { page = 1, limit = 10, search, date } = req.query;
 
@@ -167,7 +183,11 @@ export const getAllYachtListings = async (req, res) => {
       .limit(Number.parseInt(limit));
 
     // 4️⃣ Pagination info
-    const pagination = createPaginationInfo(Number.parseInt(page), Number.parseInt(limit), totalData);
+    const pagination = createPaginationInfo(
+      Number.parseInt(page),
+      Number.parseInt(limit),
+      totalData
+    );
 
     res.json({ success: true, listings, pagination });
   } catch (err) {
@@ -181,7 +201,7 @@ export const getYachtListingById = async (req, res) => {
   try {
     const { id } = req.params;
     const listing = await YachtListing.findById(id);
-    if (!listing) return res.status(404).json({ message: "Listing not found" });
+    if (!listing) return res.status(404).json({ message: 'Listing not found' });
     res.json({ success: true, listing });
   } catch (err) {
     console.error(err);
@@ -194,8 +214,7 @@ export const updateYachtListingById = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = getUserFromToken(req);
-    if (!userId)
-      return res.status(401).json({ message: "Unauthorized" });
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
     // 1️⃣ Parse nested JSON fields if they exist
     const constructions = req.body.constructions
@@ -214,10 +233,15 @@ export const updateYachtListingById = async (req, res) => {
     if (req.files?.images?.length) {
       for (const file of req.files.images) {
         let tempPath;
-        if (file.buffer) tempPath = saveImageBufferToDisk(file.buffer, file.originalname);
+        if (file.buffer)
+          tempPath = saveImageBufferToDisk(file.buffer, file.originalname);
         else if (file.path) tempPath = file.path;
 
-        const uploaded = await cloudinaryUpload(tempPath, undefined, "yacht-listings");
+        const uploaded = await cloudinaryUpload(
+          tempPath,
+          undefined,
+          'yacht-listings'
+        );
         if (uploaded?.secure_url) imageUrls.push(uploaded.secure_url);
 
         if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
@@ -226,20 +250,20 @@ export const updateYachtListingById = async (req, res) => {
     // 2b. If images sent in body (string or array)
     else if (req.body.images) {
       try {
-        if (typeof req.body.images === "string") {
+        if (typeof req.body.images === 'string') {
           imageUrls = JSON.parse(req.body.images);
         } else if (Array.isArray(req.body.images)) {
           imageUrls = req.body.images;
         }
       } catch (err) {
-        console.warn("Failed to parse images array:", err.message);
+        console.warn('Failed to parse images array:', err.message);
         imageUrls = [];
       }
     }
     if (imageUrls.length > 0) {
-  const existingListing = await YachtListing.findById(id);
-  imageUrls = [...(existingListing.images || []), ...imageUrls];
-}
+      const existingListing = await YachtListing.findById(id);
+      imageUrls = [...(existingListing.images || []), ...imageUrls];
+    }
 
     // 3️⃣ Build update object
     const updateData = {
@@ -248,7 +272,7 @@ export const updateYachtListingById = async (req, res) => {
       lengthOverall,
       beam,
       draft,
-      images: imageUrls.length ? imageUrls : undefined, // only update if we have images
+      images: imageUrls.length ? imageUrls : undefined // only update if we have images
     };
 
     // Remove undefined fields to avoid overwriting
@@ -266,7 +290,7 @@ export const updateYachtListingById = async (req, res) => {
     if (!listing)
       return res
         .status(404)
-        .json({ message: "Listing not found or unauthorized" });
+        .json({ message: 'Listing not found or unauthorized' });
 
     res.json({ success: true, listing });
   } catch (err) {
@@ -280,7 +304,7 @@ export const deleteYachtListingById = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = getUserFromToken(req);
-    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
     const listing = await YachtListing.findOneAndDelete(
       { _id: id, createdBy: userId },
@@ -288,8 +312,11 @@ export const deleteYachtListingById = async (req, res) => {
       { new: true }
     );
 
-    if (!listing) return res.status(404).json({ message: "Listing not found or unauthorized" });
-    res.json({ success: true, message: "Listing deleted", listing });
+    if (!listing)
+      return res
+        .status(404)
+        .json({ message: 'Listing not found or unauthorized' });
+    res.json({ success: true, message: 'Listing deleted', listing });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: err.message });

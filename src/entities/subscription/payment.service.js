@@ -119,13 +119,20 @@ export const handleSuccessfulPayment = async (session) => {
     // Calculate expiry date
     const expiryDate = calculateExpiryDate(billingCycle);
 
+    // Get plan details to copy allowedListings
+    const plan = await SubscriptionPlan.findById(planId);
+    if (!plan) {
+      throw new Error('Subscription plan not found');
+    }
+
     // Update user subscription status
     const user = await User.findByIdAndUpdate(
       userId,
       {
         subscriptionPlanId: planId,
         hasActiveSubscription: true,
-        subscriptionExpireDate: expiryDate
+        subscriptionExpireDate: expiryDate,
+        allowedListings: plan.allowedListings
       },
       { new: true }
     );

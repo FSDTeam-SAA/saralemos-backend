@@ -210,6 +210,11 @@ const UserSchema = new mongoose.Schema(
     },
     hasActiveSubscription: { type: Boolean, default: false },
     subscriptionExpireDate: { type: Date, default: null },
+    allowedListings: {
+      type: Number,
+      default: 5,
+      min: 0
+    },
     blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     language: { type: String, default: 'en' },
 

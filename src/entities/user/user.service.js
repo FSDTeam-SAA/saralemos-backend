@@ -132,6 +132,19 @@ export const adminDeleteUser = async (userId) => {
   return true;
 };
 
+// Update user's allowed listings (Admin only)
+export const updateUserAllowedListings = async (userId, allowedListings) => {
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  user.allowedListings = allowedListings;
+  await user.save();
+
+  return user.select('-password -verificationCode -verificationCodeExpires');
+};
+
 // Upload avatar
 export const createAvatarProfile = async (id, files) => {
   const userFound = await User.findById({ _id: id });

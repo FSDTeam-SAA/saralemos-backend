@@ -4,6 +4,7 @@ import {
   deletePlan,
   getPlanById,
   getPlans,
+  getPlanFeatures,
   updatePlan
 } from './subscription.controller.js';
 import {
@@ -29,6 +30,7 @@ router.get('/plan/:planId', getPlanAnalytics);
 // Subscription Plan Routes (specific routes before parameterized routes)
 router.post('/create', createPlan);
 router.get('/get-all', getPlans);
+router.get('/features', getPlanFeatures);
 router.delete('/delete/:id', deletePlan);
 router.get('/:id', getPlanById);
 router.put('/:id', updatePlan);

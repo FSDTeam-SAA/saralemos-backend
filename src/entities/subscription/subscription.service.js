@@ -1,5 +1,4 @@
-import SubscriptionPlan from "./subscription.model.js";
-
+import SubscriptionPlan from './subscription.model.js';
 
 export const createSubscriptionPlan = async (data) => {
   return await SubscriptionPlan.create(data);
@@ -7,6 +6,12 @@ export const createSubscriptionPlan = async (data) => {
 
 export const getAllSubscriptionPlans = async () => {
   return await SubscriptionPlan.find().sort({ createdAt: -1 });
+};
+
+export const getAllPlanFeatures = async () => {
+  return await SubscriptionPlan.find({ isActive: true })
+    .select('name features allowedListings price billingCycle')
+    .sort({ createdAt: -1 });
 };
 
 export const getSubscriptionPlanById = async (id) => {

@@ -6,35 +6,42 @@ const subscriptionPlanSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
-      trim: true,
+      trim: true
     },
- 
- 
+
     price: {
       type: Number,
       required: true,
-      min: 0,
+      min: 0
     },
-  
+
     billingCycle: {
       type: String,
-      default: 'monthly',
+      default: 'monthly'
     },
-    
+
+    allowedListings: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 5
+    },
+
     isActive: {
       type: Boolean,
-      default: true,
+      default: true
     },
     features: [
       {
-        type: String,
-      },
-    ],
-   
-   
+        type: String
+      }
+    ]
   },
   { timestamps: true }
 );
 
-const SubscriptionPlan = mongoose.model('SubscriptionPlan', subscriptionPlanSchema);
+const SubscriptionPlan = mongoose.model(
+  'SubscriptionPlan',
+  subscriptionPlanSchema
+);
 export default SubscriptionPlan;
