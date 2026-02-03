@@ -9,8 +9,10 @@ export const getAllUsers = async ({ page = 1, limit = 10, search, date }) => {
   const filter = createFilter(search, date);
   const totalUsers = await User.countDocuments(filter);
   const users = await User.find(filter)
-    .select(
-      '-password -createdAt -updatedAt -__v -verificationCode -verificationCodeExpires'
+    .select('-password -__v -verificationCode -verificationCodeExpires')
+    .populate(
+      'subscriptionPlanId',
+      'name price billingCycle allowedListings features'
     )
     .sort({ createdAt: -1 })
     .skip((page - 1) * limit)
