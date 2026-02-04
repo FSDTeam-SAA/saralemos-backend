@@ -144,7 +144,11 @@ export const updateUserAllowedListings = async (userId, allowedListings) => {
   user.allowedListings = allowedListings;
   await user.save();
 
-  return user.select('-password -verificationCode -verificationCodeExpires');
+  const userObject = user.toObject();
+  delete userObject.password;
+  delete userObject.verificationCode;
+  delete userObject.verificationCodeExpires;
+  return userObject;
 };
 
 // Upload avatar
