@@ -7,7 +7,7 @@ export const getFacebookLoginUrl = async (req, res) => {
   const userId = req.user._id
   const redirectUri = encodeURIComponent(`${process.env.BASE_URL}/api/v1/connect/callback`);
   const clientId = process.env.FACEBOOK_APP_ID;
-  const scope = encodeURIComponent('pages_show_list,pages_read_engagement,pages_read_user_content,pages_manage_posts');
+  const scope = encodeURIComponent('public_profile,pages_show_list,pages_read_engagement,pages_manage_posts,instagram_basic,instagram_content_publish');
 
   const fbLoginUrl = `https://www.facebook.com/v17.0/dialog/oauth?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code&state=${userId}`;
 
