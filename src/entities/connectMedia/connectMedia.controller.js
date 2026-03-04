@@ -92,7 +92,6 @@ export const facebookCallback = async (req, res) => {
             businessId: "personal",
             businessName: "Personal Account",
             pages: fallbackPages,
-            adAccounts: [],
           },
         ],
       });
@@ -148,22 +147,10 @@ export const facebookCallback = async (req, res) => {
           console.warn(`No pages found for business ${businessName}`);
         }
 
-        // Get ad accounts for this business
-        let adAccounts = [];
-        try {
-          const adAccountsRes = await axios.get(
-            `https://graph.facebook.com/v17.0/${businessId}/owned_ad_accounts?access_token=${longLivedToken}`
-          );
-          adAccounts = adAccountsRes.data.data || [];
-        } catch {
-          console.warn(`No ad accounts for business ${businessName}`);
-        }
-
         return {
           businessId,
           businessName,
           pages,
-          adAccounts,
         };
       })
     );
