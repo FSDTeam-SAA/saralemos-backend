@@ -9,7 +9,7 @@ export const getFacebookLoginUrl = async (req, res) => {
   const clientId = process.env.FACEBOOK_APP_ID;
   const scope = encodeURIComponent('public_profile,pages_show_list,pages_read_engagement,pages_manage_posts,instagram_basic,instagram_content_publish');
 
-  const fbLoginUrl = `https://www.facebook.com/v17.0/dialog/oauth?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code&state=${userId}`;
+  const fbLoginUrl = `https://www.facebook.com/v20.0/dialog/oauth?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code&state=${userId}`;
 
   res.json({ url: fbLoginUrl }); // Frontend can redirect user to this URL
 };
@@ -25,7 +25,7 @@ export const facebookCallback = async (req, res) => {
 
     // ------------------- Step 1: Short-lived token -------------------
     const shortLivedRes = await axios.get(
-      `https://graph.facebook.com/v17.0/oauth/access_token`, {
+      `https://graph.facebook.com/v20.0/oauth/access_token`, {
       params: {
         client_id: process.env.FACEBOOK_APP_ID,
         redirect_uri: `${process.env.BASE_URL}/api/v1/connect/callback`,
@@ -38,7 +38,7 @@ export const facebookCallback = async (req, res) => {
 
     // ------------------- Step 2: Long-lived token -------------------
     const longLivedRes = await axios.get(
-      `https://graph.facebook.com/v17.0/oauth/access_token`, {
+      `https://graph.facebook.com/v20.0/oauth/access_token`, {
       params: {
         grant_type: "fb_exchange_token",
         client_id: process.env.FACEBOOK_APP_ID,
@@ -49,117 +49,40 @@ export const facebookCallback = async (req, res) => {
     );
     const longLivedToken = longLivedRes.data.access_token;
 
-    // ------------------- Step 3: Get all businesses (portfolios) -------------------
-    const businessRes = await axios.get(
-      `https://graph.facebook.com/v17.0/me/businesses?access_token=${longLivedToken}`
-    );
-    const businesses = businessRes.data.data || [];
-    console.log("Businesses:", businesses);
-
-    // ------------------- Step 4: If no businesses, fallback to personal pages -------------------
-    if (!businesses.length) {
-      console.warn("No businesses found, falling back to personal pages");
-
-      const pagesRes = await axios.get(
-        `https://graph.facebook.com/v17.0/me/accounts?access_token=${longLivedToken}`
-      );
-      const pages = pagesRes.data.data || [];
-
-      const fallbackPages = await Promise.all(
-        pages.map(async (page) => {
-          let instagramBusinessId = null;
-          try {
-            const igRes = await axios.get(
-              `https://graph.facebook.com/v17.0/${page.id}?fields=instagram_business_account&access_token=${longLivedToken}`
-            );
-            instagramBusinessId = igRes.data.instagram_business_account?.id || null;
-          } catch {
-            console.warn(`No Instagram for ${page.name}`);
-          }
-
-          return {
-            pageId: page.id,
-            pageName: page.name,
-            pageAccessToken: page.access_token,
-            instagramBusinessId,
-          };
-        })
-      );
-
-      await User.findByIdAndUpdate(userId, {
-        facebookBusinesses: [
-          {
-            businessId: "personal",
-            businessName: "Personal Account",
-            pages: fallbackPages,
-          },
-        ],
-      });
-
-      return res.json({
-        message: "Facebook personal pages connected (no business portfolios)",
-        facebookBusinesses: fallbackPages,
-      });
+    // ------------------- Step 3: Get all pages + Instagram accounts -------------------
+    // Using /me/accounts is the most reliable way to get all pages the user can manage
+    const pagesRes = await axios.get(
+      `https://graph.facebook.com/v20.0/me/accounts`, {
+      params: {
+        access_token: longLivedToken,
+        fields: 'id,name,access_token,instagram_business_account'
+      }
     }
-
-    // ------------------- Step 5: Get pages + ad accounts for each business -------------------
-    const facebookBusinesses = await Promise.all(
-      businesses.map(async (business) => {
-        const businessId = business.id;
-        const businessName = business.name;
-
-        // Get pages for this business
-        let pages = [];
-        try {
-          const pagesRes = await axios.get(
-            `https://graph.facebook.com/v17.0/${businessId}/owned_pages?access_token=${longLivedToken}`
-          );
-          pages = pagesRes.data.data || [];
-
-          // Add IG IDs for each page
-          pages = await Promise.all(
-            pages.map(async (page) => {
-              let instagramBusinessId = null;
-              let pageAccessToken = null;
-
-              try {
-                // ✅ Fetch page access token
-                const tokenRes = await axios.get(
-                  `https://graph.facebook.com/v17.0/${page.id}?fields=access_token,instagram_business_account&access_token=${longLivedToken}`
-                );
-
-                pageAccessToken = tokenRes.data.access_token || null;
-                instagramBusinessId = tokenRes.data.instagram_business_account?.id || null;
-
-              } catch (err) {
-                console.warn(`Failed to fetch token for page ${page.id}:`, err.response?.data || err.message);
-              }
-
-              return {
-                pageId: page.id,
-                pageName: page.name,
-                pageAccessToken,
-                instagramBusinessId,
-              };
-            })
-          );
-        } catch {
-          console.warn(`No pages found for business ${businessName}`);
-        }
-
-        return {
-          businessId,
-          businessName,
-          pages,
-        };
-      })
     );
 
-    // ------------------- Step 6: Save to DB -------------------
+    const pagesData = pagesRes.data.data || [];
+
+    const processedPages = pagesData.map(page => ({
+      pageId: page.id,
+      pageName: page.name,
+      pageAccessToken: page.access_token,
+      instagramBusinessId: page.instagram_business_account?.id || null,
+    }));
+
+    // ------------------- Step 4: Save to DB -------------------
+    // We'll store them under a single "Direct Connection" business for UI consistency
+    const facebookBusinesses = [
+      {
+        businessId: "direct",
+        businessName: "Connected Pages",
+        pages: processedPages,
+      }
+    ];
+
     await User.findByIdAndUpdate(userId, { facebookBusinesses });
 
     res.json({
-      message: "Facebook & Instagram businesses connected successfully",
+      message: "Facebook & Instagram pages connected successfully",
       facebookBusinesses,
     });
 
