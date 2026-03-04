@@ -61,6 +61,7 @@ export const facebookCallback = async (req, res) => {
     );
 
     const pagesData = pagesRes.data.data || [];
+    console.log(`Fetched ${pagesData.length} pages from Facebook`);
 
     const processedPages = pagesData.map(page => ({
       pageId: page.id,
@@ -68,6 +69,7 @@ export const facebookCallback = async (req, res) => {
       pageAccessToken: page.access_token,
       instagramBusinessId: page.instagram_business_account?.id || null,
     }));
+    console.log("Processed Pages:", processedPages);
 
     // ------------------- Step 4: Save to DB -------------------
     // We'll store them under a single "Direct Connection" business for UI consistency

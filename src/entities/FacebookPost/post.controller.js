@@ -103,6 +103,15 @@ export const handleFinalizePost = async (req, res) => {
     const page = user.facebookBusinesses
       .flatMap((b) => b.pages)
       .find((p) => p.pageId === pageId);
+
+    if (!page) {
+      console.warn(`Page not found: ${pageId} for user: ${userId}`);
+      return res.status(400).json({
+        error: 'Facebook page not found in your connected accounts. Please connect your page first.',
+        detail: `Page ID ${pageId} not found.`
+      });
+    }
+
     const token = page.pageAccessToken;
     const isScheduling = status === 'SCHEDULED';
     const unixTimestamp = isScheduling
