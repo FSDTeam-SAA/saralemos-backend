@@ -589,8 +589,15 @@ export const verifyPostStatusBackground = async (post, token) => {
           }
         );
 
-        updates['platformData.facebook.status'] = 'PUBLISHED';
-        updates['platformData.facebook.isVerified'] = true;
+        if (fbResponse.data.is_published) {
+          updates['platformData.facebook.status'] = 'PUBLISHED';
+          updates['status'] = 'PUBLISHED'; // Ensure main status is updated
+          updates['platformData.facebook.isVerified'] = true;
+        } else {
+          updates['platformData.facebook.status'] = 'SCHEDULED';
+          updates['status'] = 'SCHEDULED';
+          updates['platformData.facebook.isVerified'] = false;
+        }
         updates['platformData.facebook.lastChecked'] = new Date();
       } catch (fbError) {
         const errorMsg =
@@ -644,5 +651,121 @@ export const verifyPostStatusBackground = async (post, token) => {
       err.message
     );
     return { success: false, postId: post._id, error: err.message };
+  }
+};
+
+/**
+ * @desc    Publish a draft post
+ * @route   POST /api/posts/:id/publish
+ * @access  Private
+ */
+export const publishDraft = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { id } = req.params;
+
+    // Find the post
+    const post = await SocialPost.findOne({ _id: id, userId });
+
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    if (post.status !== 'DRAFT' && post.status !== 'FAILED') {
+      return res.status(400).json({ error: 'Post is already published or scheduled' });
+    }
+
+    const user = await User.findById(userId);
+    const page = user.facebookBusinesses
+      .flatMap((b) => b.pages)
+      .find((p) => p.pageId === post.pageId);
+
+    if (!page) {
+      return res.status(400).json({ error: 'Facebook page not found in user account' });
+    }
+
+    const token = page.pageAccessToken;
+    const isScheduling = post.status === 'SCHEDULED' || !!post.scheduledPublishTime;
+    const unixTimestamp = post.scheduledPublishTime
+      ? Math.round(new Date(post.scheduledPublishTime).getTime() / 1000)
+      : null;
+
+    const hasMedia = post.media.length > 0;
+    const mediaUrls = post.media.map(m => m.url);
+    const isVideo = post.media[0]?.mediaType === 'VIDEO';
+    const message = post.content.message;
+
+    const apiResults = { fb: {}, ig: {} };
+
+    // --- FACEBOOK ---
+    if (post.platforms.includes('facebook')) {
+      let endpoint = `${post.pageId}/feed`;
+      if (hasMedia) {
+        endpoint = isVideo ? `${post.pageId}/videos` : `${post.pageId}/photos`;
+      }
+
+      const fbParams = {
+        access_token: token,
+        published: !isScheduling,
+        [isVideo ? 'description' : 'message']: message,
+        ...(isScheduling && { scheduled_publish_time: unixTimestamp })
+      };
+
+      if (hasMedia) {
+        fbParams[isVideo ? 'file_url' : 'url'] = mediaUrls[0];
+      }
+
+      const fbRes = await axios.post(FB_API(endpoint), qs.stringify(fbParams));
+      apiResults.fb = { id: fbRes.data.id || fbRes.data.post_id };
+    }
+
+    // --- INSTAGRAM ---
+    if (post.platforms.includes('instagram') && hasMedia) {
+      const igIdInfo = await axios.get(FB_API(post.pageId), {
+        params: { fields: 'instagram_business_account', access_token: token }
+      });
+      const igId = igIdInfo.data.instagram_business_account.id;
+
+      const igParams = {
+        access_token: token,
+        caption: message,
+        media_type: isVideo ? 'VIDEO' : 'IMAGE',
+        [isVideo ? 'video_url' : 'image_url']: mediaUrls[0],
+        ...(isScheduling && { scheduled_publish_time: unixTimestamp })
+      };
+
+      const container = await axios.post(
+        FB_API(`${igId}/media`),
+        qs.stringify(igParams)
+      );
+      const publishRes = await axios.post(
+        FB_API(`${igId}/media_publish`),
+        qs.stringify({
+          creation_id: container.data.id,
+          access_token: token
+        })
+      );
+      apiResults.ig = { id: publishRes.data.id };
+    }
+
+    // Update post status and platform data
+    post.status = isScheduling ? 'SCHEDULED' : 'PUBLISHED';
+    if (apiResults.fb.id) post.platformData.facebook = { postId: apiResults.fb.id, status: 'PENDING' };
+    if (apiResults.ig.id) post.platformData.instagram = { mediaId: apiResults.ig.id, status: 'PENDING' };
+    post.updatedAt = Date.now();
+
+    await post.save();
+
+    return res.json({
+      success: true,
+      message: `Successfully ${post.status.toLowerCase()}`,
+      post
+    });
+  } catch (err) {
+    console.error('Publish Draft Error:', err.response?.data || err.message);
+    res.status(500).json({
+      error: 'Failed to publish draft',
+      detail: err.response?.data || err.message
+    });
   }
 };

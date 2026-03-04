@@ -6,7 +6,8 @@ import {
   getPostById,
   updatePost,
   deletePost,
-  getPostStatus
+  getPostStatus,
+  publishDraft
 } from './post.controller.js';
 import {
   userMiddleware,
@@ -71,6 +72,13 @@ router.put(
   upload.array('postImages', 10),
   updatePost
 );
+
+/**
+ * @route   POST /api/posts/:id/publish
+ * @desc    Publish a draft post
+ * @access  Private
+ */
+router.post('/:id/publish', verifyToken, userMiddleware, publishDraft);
 
 /**
  * @route   DELETE /api/posts/:id
