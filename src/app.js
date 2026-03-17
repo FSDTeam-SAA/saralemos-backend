@@ -42,7 +42,7 @@ const allowedOrigins = [
 ];
 
 app.use(
-  cors, ({
+  cors({
     origin: (origin, cb) => {
       // allow non-browser requests (like Postman/curl) where origin is undefined
       if (!origin) return cb(null, true);
