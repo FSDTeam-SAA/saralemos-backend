@@ -34,17 +34,15 @@ app.use(mongoSanitize());
 app.use(morgan('combined'));
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://saralemos-backend.onrender.com',
-  'https://sara-lemos-client-dashboard.vercel.app',
-  'https://saralemos1978-website.vercel.app',
   'http://127.0.0.1:3000',
-  'https://saralemos-admin-dasboard.vercel.app'
-  // add your prod domains too, e.g.:
-  // "https://your-frontend.com",
+  'https://sara-lemos-client-dashboard-cyan.vercel.app',
+  'https://saralemos1978-website-brown.vercel.app',
+  'https://saralemos-admin-dasboard-seven.vercel.app'
+
 ];
 
 app.use(
-  cors({
+  cors, ({
     origin: (origin, cb) => {
       // allow non-browser requests (like Postman/curl) where origin is undefined
       if (!origin) return cb(null, true);
