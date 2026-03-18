@@ -37,7 +37,8 @@ const allowedOrigins = [
   'http://127.0.0.1:3000',
   'https://sara-lemos-client-dashboard-cyan.vercel.app',
   'https://saralemos1978-website-brown.vercel.app',
-  'https://saralemos-admin-dasboard-seven.vercel.app'
+  'https://saralemos-admin-dasboard-seven.vercel.app',
+  'https://sara-lemos-client-dashboard-53u6nyn9c.vercel.app'
 
 ];
 
