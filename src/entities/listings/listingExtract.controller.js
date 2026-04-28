@@ -8,51 +8,88 @@ import fs from 'fs';
 
 export const extractListingFromPdf = async (req, res) => {
   try {
-    // Check for uploaded PDF
-    if (!req.files?.pdf?.[0]) {
-      return res.status(400).json({ message: 'PDF file required' });
+    const userId = req.user?._id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    // 1. Set headers for Streaming (SSE)
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    const sendEvent = (event, data) => {
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    };
+
+    // Check user's listing limit
+    const user = await req.user.populate('subscriptionPlanId');
+    const allowedListings = user.allowedListings || 5;
+
+    const existingListingsCount = await YachtListing.countDocuments({
+      createdBy: userId,
+      isActive: true
+    });
+
+    if (existingListingsCount >= allowedListings) {
+      sendEvent('error', { message: `Limit reached (${allowedListings})` });
+      return res.end();
     }
 
-    const pdfFile = req.files.pdf[0]; // Access the first file
+    // Check for uploaded PDF
+    if (!req.files?.pdf?.[0]) {
+      sendEvent('error', { message: 'PDF file required' });
+      return res.end();
+    }
+
+    const pdfFile = req.files.pdf[0];
     const pdfPath = pdfFile.path;
+
+    sendEvent('status', { message: 'Extracting PDF text and images...' });
 
     // 1️⃣ Adobe Extract
     const { extractedText, images } = await extractPdfData(pdfPath);
 
-    // 2️⃣ GPT Field Matching
-    const matchedData = await matchListingFieldsWithGPT(extractedText);
+    sendEvent('status', { message: 'Matching fields with AI...' });
+
+    // 2️⃣ GPT Field Matching (with streaming callback)
+    const matchedData = await matchListingFieldsWithGPT(extractedText, (partialData) => {
+      sendEvent('chunk', { partialData });
+    });
+
+    sendEvent('status', { message: 'Uploading images...' });
 
     // 3️⃣ Upload extracted images to Cloudinary
     const imageUrls = [];
-
     for (const img of images) {
       const tempPath = saveImageBufferToDisk(img.buffer, img.name);
-
-      const uploaded = await cloudinaryUpload(
-        tempPath,
-        undefined,
-        'yacht-listings'
-      );
-
+      const uploaded = await cloudinaryUpload(tempPath, undefined, 'yacht-listings');
       if (uploaded?.secure_url) {
         imageUrls.push(uploaded.secure_url);
       }
+      if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
     }
 
-    // 4️⃣ Response for UI (preview + edit)
-    res.json({
-      success: true,
-      extractedText,
-      matchedData,
-      images: imageUrls
+    sendEvent('status', { message: 'Saving listing...' });
+
+    // 4️⃣ Create the listing automatically
+    const listing = await YachtListing.create({
+      ...matchedData,
+      images: imageUrls,
+      createdBy: userId,
+      isActive: true
     });
+
+    // 5️⃣ Final Response
+    sendEvent('final', { 
+      message: 'Success', 
+      listing,
+      extractedText 
+    });
+    
+    res.end();
   } catch (err) {
     console.error(err);
-    res.status(500).json({
-      success: false,
-      message: 'PDF extraction failed',
-      error: err.message
-    });
+    res.write(`event: error\ndata: ${JSON.stringify({ message: err.message })}\n\n`);
+    res.end();
   }
 };
 

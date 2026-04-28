@@ -9,7 +9,7 @@ const openai = new OpenAI({
 
 export const generateAd = async (req, res) => {
   try {
-    const { tone, postType, platforms, contactInfo, keywords, cta } = req.body;
+    const { tone, postType, platforms, contactInfo, keywords, cta, listingData } = req.body;
 
     // 1️⃣ Validate required fields
     if (!tone) return res.status(400).json({ error: 'tone is required' });
@@ -27,6 +27,12 @@ export const generateAd = async (req, res) => {
     const ctaText = cta || 'Contact us';
     const contactText = contactInfo || 'No contact info provided';
 
+    const listingDetails = listingData && typeof listingData === 'object' 
+      ? Object.entries(listingData)
+          .map(([key, value]) => `- ${key}: ${value}`)
+          .join('\n')
+      : 'N/A';
+
     const prompt = String.raw`
 You are an expert social media content creator for premium yacht marketing.
 
@@ -37,22 +43,25 @@ Create engaging Facebook/Instagram post content based on:
 - Keywords: ${keywordsText}
 - Call to Action: ${ctaText}
 - Platforms: ${platforms.join(', ')}
+- Listing Details:
+${listingDetails}
 
 Return ONLY this exact JSON structure for complete social media posts:
 
 {
   "facebook": {
-    "message": "Complete engaging Facebook post message with emojis, line breaks, call-to-action, and relevant hashtags. Include contact info if provided.",
-    "imagePrompt": "Detailed description for generating a premium yacht image"
+    "message": "Complete engaging Facebook post message with emojis, line breaks, call-to-action, and relevant hashtags. Include contact info and listing details if provided.",
+    "imagePrompt": "Detailed description for generating a premium yacht image based on the listing details"
   },
   "instagram": {
-    "message": "Complete engaging Instagram caption with emojis, line breaks, call-to-action, and 5-10 relevant hashtags. Include contact info if provided.",
-    "imagePrompt": "Detailed description for generating a premium yacht Instagram image"
+    "message": "Complete engaging Instagram caption with emojis, line breaks, call-to-action, and 5-10 relevant hashtags. Include contact info and listing details if provided.",
+    "imagePrompt": "Detailed description for generating a premium yacht Instagram image based on the listing details"
   }
 }
 
 Rules:
 - "message" should be a COMPLETE ready-to-post caption (150-300 words)
+- Incorporate the Listing Details naturally into the post messages
 - Include emojis throughout the message for engagement
 - Use \n for line breaks to format the post nicely
 - Include the call-to-action naturally in the message
