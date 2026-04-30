@@ -39,6 +39,65 @@ function prepareYachtListingData(data) {
   return prepared;
 }
 
+// Helper to validate and score yacht name confidence
+function validateYachtNameConfidence(yachtName, otherFields) {
+  if (!yachtName) return { confidence: 0, yachtName: null, message: 'No yacht name found' };
+
+  const genericTerms = ['model', 'yacht', 'boat', 'vessel', 'ship', 'type', 'series', 'class', 'specification'];
+  const isGeneric = genericTerms.some(term => yachtName.toLowerCase().includes(term));
+  
+  // Common builder names to exclude
+  const commonBuilders = ['sunseeker', 'azimut', 'beneteau', 'ferretti', 'pershing', 'ritz-carlton', 'maserati', 'benetti', 'trinity'];
+  const isBuilder = commonBuilders.some(builder => yachtName.toLowerCase().includes(builder));
+  
+  // Common location names to exclude
+  const commonLocations = ['miami', 'monaco', 'dubai', 'caribbean', 'mediterranean', 'florida', 'california'];
+  const isLocation = commonLocations.some(loc => yachtName.toLowerCase().includes(loc));
+  
+  let confidence = 85; // Start with good confidence for contextually-detected names
+  let message = 'Yacht name extracted from context clues';
+  
+  if (isGeneric) {
+    confidence = 25;
+    message = 'Detected term is too generic - likely not the actual yacht name';
+  }
+  if (isBuilder) {
+    confidence = 15;
+    message = 'Detected term appears to be builder name, not yacht name';
+  }
+  if (isLocation) {
+    confidence = 20;
+    message = 'Detected term appears to be location, not yacht name';
+  }
+  if (yachtName.length < 2) {
+    confidence = 10;
+    message = 'Name too short to be valid yacht name';
+  }
+  if (yachtName.length > 100) {
+    confidence = 40;
+    message = 'Name seems unusually long - may be partial description';
+  }
+  
+  // Positive indicators for yacht name legitimacy
+  if (yachtName.length >= 3 && yachtName.length <= 40) {
+    confidence = Math.min(100, confidence + 10); // Reasonable length
+  }
+  if (/^[A-Z][a-zA-Z\s-]*$/.test(yachtName)) {
+    confidence = Math.min(100, confidence + 5); // Proper capitalization
+  }
+  if (!isGeneric && !isBuilder && !isLocation) {
+    confidence = Math.min(100, confidence + 10); // Passes exclusion checks
+  }
+
+  return { 
+    confidence, 
+    yachtName, 
+    message,
+    detectedMethod: 'contextual',
+    suggestion: otherFields?.model || otherFields?.builder 
+  };
+}
+
 export const extractListingFromPdf = async (req, res) => {
   try {
     const userId = req.user?._id;
@@ -110,12 +169,28 @@ export const extractListingFromPdf = async (req, res) => {
     // 4️⃣ Validate and prepare data before saving
     const preparedData = prepareYachtListingData(matchedData);
 
-    // Validate required fields
+    // Validate yacht name with confidence scoring
+    const nameValidation = validateYachtNameConfidence(preparedData.yachtName, preparedData);
+    
+    console.log(`Yacht name confidence: ${nameValidation.confidence}%`, nameValidation);
+    
     if (!preparedData.yachtName) {
       sendEvent('error', { 
-        message: 'Yacht name could not be extracted. Please provide it manually.' 
+        message: 'Yacht name could not be extracted. Please provide it manually.',
+        confidence: 0,
+        suggestion: preparedData.model || preparedData.builder
       });
       return res.end();
+    }
+
+    // If confidence is low, warn the user but still save
+    if (nameValidation.confidence < 60) {
+      sendEvent('warning', { 
+        message: nameValidation.message,
+        confidence: nameValidation.confidence,
+        detectedName: preparedData.yachtName,
+        suggestion: nameValidation.suggestion
+      });
     }
 
     // Create the listing automatically
@@ -130,6 +205,13 @@ export const extractListingFromPdf = async (req, res) => {
     sendEvent('final', { 
       message: 'Success', 
       listing,
+      extractionQuality: {
+        yachtNameConfidence: nameValidation.confidence,
+        yachtName: preparedData.yachtName,
+        fieldsExtracted: Object.keys(preparedData).length,
+        imagesExtracted: imageUrls.length,
+        warning: nameValidation.confidence < 60 ? nameValidation.message : null
+      },
       extractedText 
     });
     
