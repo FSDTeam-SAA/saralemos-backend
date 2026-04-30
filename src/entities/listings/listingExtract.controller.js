@@ -6,6 +6,39 @@ import { saveImageBufferToDisk } from '../../lib/saveImageTemp.js';
 import { YachtListing } from './listing.model.js';
 import fs from 'fs';
 
+// Helper function to prepare and validate yacht listing data
+function prepareYachtListingData(data) {
+  const prepared = { ...data };
+  
+  // Ensure dimensions have proper structure if extracted
+  const ensureDimension = (dim) => {
+    if (!dim) return null;
+    if (typeof dim === 'object' && dim.value !== null && dim.value !== undefined) {
+      return {
+        value: Number(dim.value),
+        unit: dim.unit || 'm'
+      };
+    }
+    return null;
+  };
+
+  if (prepared.lengthOverall) prepared.lengthOverall = ensureDimension(prepared.lengthOverall);
+  if (prepared.beam) prepared.beam = ensureDimension(prepared.beam);
+  if (prepared.draft) prepared.draft = ensureDimension(prepared.draft);
+
+  // Remove null dimensions
+  if (!prepared.lengthOverall) delete prepared.lengthOverall;
+  if (!prepared.beam) delete prepared.beam;
+  if (!prepared.draft) delete prepared.draft;
+
+  // Clean up constructions object
+  if (prepared.constructions && Object.keys(prepared.constructions).length === 0) {
+    delete prepared.constructions;
+  }
+
+  return prepared;
+}
+
 export const extractListingFromPdf = async (req, res) => {
   try {
     const userId = req.user?._id;
@@ -57,22 +90,37 @@ export const extractListingFromPdf = async (req, res) => {
 
     sendEvent('status', { message: 'Uploading images...' });
 
-    // 3️⃣ Upload extracted images to Cloudinary
-    const imageUrls = [];
-    for (const img of images) {
-      const tempPath = saveImageBufferToDisk(img.buffer, img.name);
-      const uploaded = await cloudinaryUpload(tempPath, undefined, 'yacht-listings');
-      if (uploaded?.secure_url) {
-        imageUrls.push(uploaded.secure_url);
+    // 3️⃣ Upload extracted images to Cloudinary (parallel)
+    const uploadPromises = images.map(async (img) => {
+      try {
+        const tempPath = saveImageBufferToDisk(img.buffer, img.name);
+        const uploaded = await cloudinaryUpload(tempPath, undefined, 'yacht-listings');
+        if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+        return uploaded?.secure_url || null;
+      } catch (err) {
+        console.error('Image upload error:', err);
+        return null;
       }
-      if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-    }
+    });
+
+    const imageUrls = (await Promise.all(uploadPromises)).filter(Boolean);
 
     sendEvent('status', { message: 'Saving listing...' });
 
-    // 4️⃣ Create the listing automatically
+    // 4️⃣ Validate and prepare data before saving
+    const preparedData = prepareYachtListingData(matchedData);
+
+    // Validate required fields
+    if (!preparedData.yachtName) {
+      sendEvent('error', { 
+        message: 'Yacht name could not be extracted. Please provide it manually.' 
+      });
+      return res.end();
+    }
+
+    // Create the listing automatically
     const listing = await YachtListing.create({
-      ...matchedData,
+      ...preparedData,
       images: imageUrls,
       createdBy: userId,
       isActive: true
