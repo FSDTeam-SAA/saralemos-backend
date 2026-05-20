@@ -114,14 +114,42 @@ const normalizeMatchedListingData = (matchedData) => {
     constructions: normalizeConstructions(matchedData.constructions)
   };
 };
+
+const parsePositiveInteger = (value, fallback) => {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const mapWithConcurrency = async (items, concurrency, mapper) => {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+
+  const workers = Array.from(
+    { length: Math.min(concurrency, items.length) },
+    async () => {
+      while (nextIndex < items.length) {
+        const currentIndex = nextIndex;
+        nextIndex += 1;
+        results[currentIndex] = await mapper(items[currentIndex], currentIndex);
+      }
+    }
+  );
+
+  await Promise.all(workers);
+  return results;
+};
 // Helper function to prepare and validate yacht listing data
 function prepareYachtListingData(data) {
   const prepared = { ...data };
-  
+
   // Ensure dimensions have proper structure if extracted
   const ensureDimension = (dim) => {
     if (!dim) return null;
-    if (typeof dim === 'object' && dim.value !== null && dim.value !== undefined) {
+    if (
+      typeof dim === 'object' &&
+      dim.value !== null &&
+      dim.value !== undefined
+    ) {
       return {
         value: Number(dim.value),
         unit: dim.unit || 'm'
@@ -130,7 +158,8 @@ function prepareYachtListingData(data) {
     return null;
   };
 
-  if (prepared.lengthOverall) prepared.lengthOverall = ensureDimension(prepared.lengthOverall);
+  if (prepared.lengthOverall)
+    prepared.lengthOverall = ensureDimension(prepared.lengthOverall);
   if (prepared.beam) prepared.beam = ensureDimension(prepared.beam);
   if (prepared.draft) prepared.draft = ensureDimension(prepared.draft);
 
@@ -140,7 +169,10 @@ function prepareYachtListingData(data) {
   if (!prepared.draft) delete prepared.draft;
 
   // Clean up constructions object
-  if (prepared.constructions && Object.keys(prepared.constructions).length === 0) {
+  if (
+    prepared.constructions &&
+    Object.keys(prepared.constructions).length === 0
+  ) {
     delete prepared.constructions;
   }
 
@@ -149,22 +181,57 @@ function prepareYachtListingData(data) {
 
 // Helper to validate and score yacht name confidence
 function validateYachtNameConfidence(yachtName, otherFields) {
-  if (!yachtName) return { confidence: 0, yachtName: null, message: 'No yacht name found' };
+  if (!yachtName)
+    return { confidence: 0, yachtName: null, message: 'No yacht name found' };
 
-  const genericTerms = ['model', 'yacht', 'boat', 'vessel', 'ship', 'type', 'series', 'class', 'specification'];
-  const isGeneric = genericTerms.some(term => yachtName.toLowerCase().includes(term));
-  
+  const genericTerms = [
+    'model',
+    'yacht',
+    'boat',
+    'vessel',
+    'ship',
+    'type',
+    'series',
+    'class',
+    'specification'
+  ];
+  const isGeneric = genericTerms.some((term) =>
+    yachtName.toLowerCase().includes(term)
+  );
+
   // Common builder names to exclude
-  const commonBuilders = ['sunseeker', 'azimut', 'beneteau', 'ferretti', 'pershing', 'ritz-carlton', 'maserati', 'benetti', 'trinity'];
-  const isBuilder = commonBuilders.some(builder => yachtName.toLowerCase().includes(builder));
-  
+  const commonBuilders = [
+    'sunseeker',
+    'azimut',
+    'beneteau',
+    'ferretti',
+    'pershing',
+    'ritz-carlton',
+    'maserati',
+    'benetti',
+    'trinity'
+  ];
+  const isBuilder = commonBuilders.some((builder) =>
+    yachtName.toLowerCase().includes(builder)
+  );
+
   // Common location names to exclude
-  const commonLocations = ['miami', 'monaco', 'dubai', 'caribbean', 'mediterranean', 'florida', 'california'];
-  const isLocation = commonLocations.some(loc => yachtName.toLowerCase().includes(loc));
-  
+  const commonLocations = [
+    'miami',
+    'monaco',
+    'dubai',
+    'caribbean',
+    'mediterranean',
+    'florida',
+    'california'
+  ];
+  const isLocation = commonLocations.some((loc) =>
+    yachtName.toLowerCase().includes(loc)
+  );
+
   let confidence = 85; // Start with good confidence for contextually-detected names
   let message = 'Yacht name extracted from context clues';
-  
+
   if (isGeneric) {
     confidence = 25;
     message = 'Detected term is too generic - likely not the actual yacht name';
@@ -185,7 +252,7 @@ function validateYachtNameConfidence(yachtName, otherFields) {
     confidence = 40;
     message = 'Name seems unusually long - may be partial description';
   }
-  
+
   // Positive indicators for yacht name legitimacy
   if (yachtName.length >= 3 && yachtName.length <= 40) {
     confidence = Math.min(100, confidence + 10); // Reasonable length
@@ -197,12 +264,12 @@ function validateYachtNameConfidence(yachtName, otherFields) {
     confidence = Math.min(100, confidence + 10); // Passes exclusion checks
   }
 
-  return { 
-    confidence, 
-    yachtName, 
+  return {
+    confidence,
+    yachtName,
     message,
     detectedMethod: 'contextual',
-    suggestion: otherFields?.model || otherFields?.builder 
+    suggestion: otherFields?.model || otherFields?.builder
   };
 }
 
@@ -237,11 +304,20 @@ export const extractListingFromPdf = async (req, res) => {
 
     const pdfFile = req.files.pdf[0];
     pdfPath = pdfFile.path;
+    const maxImages = parsePositiveInteger(
+      req.body.maxImages || req.query.maxImages,
+      32
+    );
 
     sendEvent('status', { message: 'Extracting PDF text and images...' });
 
     // 1️⃣ Adobe Extract
-    const { extractedText, images } = await extractPdfData(pdfPath);
+    const { extractedText, images, imageStats } = await extractPdfData(
+      pdfPath,
+      {
+        maxImages
+      }
+    );
 
     sendEvent('status', { message: 'Matching fields with AI...' });
 
@@ -256,8 +332,8 @@ export const extractListingFromPdf = async (req, res) => {
 
     sendEvent('status', { message: 'Uploading images...' });
 
-    // 3️⃣ Upload extracted images to Cloudinary (parallel)
-    const uploadPromises = images.map(async (img) => {
+    // 3️⃣ Upload selected images to Cloudinary with bounded concurrency
+    const uploadedImages = await mapWithConcurrency(images, 4, async (img) => {
       try {
         const tempPath = saveImageBufferToDisk(
           img.buffer,
@@ -276,7 +352,7 @@ export const extractListingFromPdf = async (req, res) => {
       }
     });
 
-    const imageUrls = (await Promise.all(uploadPromises)).filter(Boolean);
+    const imageUrls = uploadedImages.filter(Boolean);
 
     sendEvent('status', { message: 'Saving listing...' });
 
@@ -284,13 +360,20 @@ export const extractListingFromPdf = async (req, res) => {
     const preparedData = prepareYachtListingData(matchedData);
 
     // Validate yacht name with confidence scoring
-    const nameValidation = validateYachtNameConfidence(preparedData.yachtName, preparedData);
-    
-    console.log(`Yacht name confidence: ${nameValidation.confidence}%`, nameValidation);
-    
+    const nameValidation = validateYachtNameConfidence(
+      preparedData.yachtName,
+      preparedData
+    );
+
+    console.log(
+      `Yacht name confidence: ${nameValidation.confidence}%`,
+      nameValidation
+    );
+
     if (!preparedData.yachtName) {
-      sendEvent('error', { 
-        message: 'Yacht name could not be extracted. Please provide it manually.',
+      sendEvent('error', {
+        message:
+          'Yacht name could not be extracted. Please provide it manually.',
         confidence: 0,
         suggestion: preparedData.model || preparedData.builder
       });
@@ -299,7 +382,7 @@ export const extractListingFromPdf = async (req, res) => {
 
     // If confidence is low, warn the user but still save
     if (nameValidation.confidence < 60) {
-      sendEvent('warning', { 
+      sendEvent('warning', {
         message: nameValidation.message,
         confidence: nameValidation.confidence,
         detectedName: preparedData.yachtName,
@@ -316,19 +399,22 @@ export const extractListingFromPdf = async (req, res) => {
     });
 
     // 5️⃣ Final Response
-    sendEvent('final', { 
-      message: 'Success', 
+    sendEvent('final', {
+      message: 'Success',
       listing,
       extractionQuality: {
         yachtNameConfidence: nameValidation.confidence,
         yachtName: preparedData.yachtName,
         fieldsExtracted: Object.keys(preparedData).length,
         imagesExtracted: imageUrls.length,
+        imageCandidatesFound: imageStats?.extractedImages || images.length,
+        imageCandidatesAfterDedupe: imageStats?.uniqueImages || images.length,
+        imageSelectionLimit: imageStats?.maxImages || maxImages,
         warning: nameValidation.confidence < 60 ? nameValidation.message : null
       },
-      extractedText 
+      extractedText
     });
-    
+
     res.end();
   } catch (err) {
     console.error(err);
