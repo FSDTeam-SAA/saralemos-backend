@@ -55,7 +55,7 @@ const parseBooleanLikeValue = (value) => {
 
 const findConstructionField = (key) =>
   Object.keys(constructionDefaults).find(
-    (field) => field.toLowerCa git config pull.rebase false se() === String(key).toLowerCase()
+    (field) => field.toLowerCase() === String(key).toLowerCase()
   );
 
 const applyConstructionText = (result, text) => {
@@ -246,19 +246,16 @@ export const extractListingFromPdf = async (req, res) => {
     // 1️⃣ Adobe Extract
     const { extractedText, images } = await extractPdfData(pdfPath);
 
-<<<<<<< HEAD
-    // 2️⃣ GPT Field Matching
-    const matchedData = normalizeMatchedListingData(
-      await matchListingFieldsWithGPT(extractedText)
-    );
-=======
     sendEvent('status', { message: 'Matching fields with AI...' });
->>>>>>> 2a0c01d7afec79eb1b878beccea5112409af109e
 
     // 2️⃣ GPT Field Matching (with streaming callback)
-    const matchedData = await matchListingFieldsWithGPT(extractedText, (partialData) => {
-      sendEvent('chunk', { partialData });
-    });
+    const matchedData = normalizeMatchedListingData(
+      await matchListingFieldsWithGPT(extractedText, (partialData) => {
+        sendEvent('chunk', {
+          partialData: normalizeMatchedListingData(partialData)
+        });
+      })
+    );
 
     sendEvent('status', { message: 'Uploading images...' });
 

@@ -83,14 +83,10 @@ matching this schema:
   description
 }
 
-<<<<<<< HEAD
 For constructions, return booleans only. If a construction material is not
 clearly present in the text, set that field to false. Do not return material
 names like "Fiberglass" as values inside constructions.
 
-TEXT:
-"""${text}"""
-=======
 **YACHT NAME EXTRACTION (WITHOUT EXPLICIT LABELS):**
 
 The yacht name is typically found through context clues:
@@ -139,7 +135,6 @@ The yacht name is typically found through context clues:
 
 TEXT CHUNK:
 """${chunk}"""
->>>>>>> 2a0c01d7afec79eb1b878beccea5112409af109e
 `;
 
   try {
@@ -223,30 +218,7 @@ export const matchListingFieldsWithGPT = async (text, onChunk) => {
     finalData = mergeExtraction(finalData, r);
   });
 
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`OpenAI API error: ${res.status} ${errText}`);
-  }
-
-  const data = await res.json();
-
-  if (data.error) {
-    throw new Error(`OpenAI error: ${data.error.message}`);
-  }
-
-  const choice = data?.choices?.[0];
-  if (!choice?.message?.content) {
-    throw new Error("Invalid GPT response structure");
-  }
-
-  const cleaned = cleanJsonString(choice.message.content);
-
-  try {
-    return JSON.parse(cleaned);
-  } catch (err) {
-    console.error("GPT raw output:", choice.message.content);
-    throw new Error("Failed to parse GPT JSON output");
-  }
+  return finalData;
 };
 
 // export const matchListingFieldsWithGPT = async (text) => {
@@ -304,5 +276,3 @@ export const matchListingFieldsWithGPT = async (text, onChunk) => {
 
 //   return JSON.parse(cleaned);
 // };
-  return finalData;
-};
