@@ -218,20 +218,6 @@ export const extractListingFromPdf = async (req, res) => {
       res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     };
 
-    // Check user's listing limit
-    const user = await req.user.populate('subscriptionPlanId');
-    const allowedListings = user.allowedListings || 5;
-
-    const existingListingsCount = await YachtListing.countDocuments({
-      createdBy: userId,
-      isActive: true
-    });
-
-    if (existingListingsCount >= allowedListings) {
-      sendEvent('error', { message: `Limit reached (${allowedListings})` });
-      return res.end();
-    }
-
     // Check for uploaded PDF
     if (!req.files?.pdf?.[0]) {
       sendEvent('error', { message: 'PDF file required' });
@@ -341,26 +327,6 @@ export const createYachtListing = async (req, res) => {
   try {
     const userId = getUserFromToken(req);
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
-
-    // Check user's listing limit
-    const user = await req.user.populate('subscriptionPlanId');
-    const allowedListings = user.allowedListings || 5; // Default to 5 if not set
-
-    // Count existing active listings for this user
-    const existingListingsCount = await YachtListing.countDocuments({
-      createdBy: userId,
-      isActive: true
-    });
-
-    // Validate if user has reached their limit
-    if (existingListingsCount >= allowedListings) {
-      return res.status(403).json({
-        success: false,
-        message: `You have reached your listing limit of ${allowedListings}. Please upgrade your subscription to add more listings.`,
-        currentListings: existingListingsCount,
-        allowedListings: allowedListings
-      });
-    }
 
     // 2️⃣ Parse nested JSON fields
     const constructions = normalizeConstructions(req.body.constructions);
