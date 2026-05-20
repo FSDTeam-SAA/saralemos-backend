@@ -1,0 +1,1416 @@
+{
+  "info": {
+    "_postman_id": "saralemos-api-collection",
+    "name": "SaraLemos Backend API",
+    "description": "Complete API documentation for SaraLemos Backend - Social Media Marketing, Listings & Subscription Management",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "description": "User authentication endpoints",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "email",
+                  "value": "user@example.com",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "password123",
+                  "type": "text"
+                },
+                {
+                  "key": "firstName",
+                  "value": "John",
+                  "type": "text"
+                },
+                {
+                  "key": "lastName",
+                  "value": "Doe",
+                  "type": "text"
+                },
+                {
+                  "key": "userType",
+                  "value": "user",
+                  "type": "text"
+                },
+                {
+                  "key": "profilePhoto",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "auth", "register"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": []
+                },
+                "url": {
+                  "raw": "{{base_url}}/v1/auth/register",
+                  "host": ["{{base_url}}"],
+                  "path": ["v1", "auth", "register"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"message\": \"User registered successfully\",\n  \"user\": {\n    \"_id\": \"user123\",\n    \"email\": \"user@example.com\",\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"userType\": \"user\",\n    \"profilePhoto\": \"https://cloudinary.com/...\",\n    \"createdAt\": \"2026-05-20T10:30:00Z\"\n  },\n  \"token\": \"eyJhbGc...\"\n}\n"
+            }
+          ]
+        },
+        {
+          "name": "Login User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Access Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"eyJhbGciOiJIUzI1NiIs...\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/auth/refresh-access-token",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "auth", "refresh-access-token"]
+            }
+          }
+        },
+        {
+          "name": "Forget Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/auth/forget-password",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "auth", "forget-password"]
+            }
+          }
+        },
+        {
+          "name": "Verify Reset Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/auth/verify-code",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "auth", "verify-code"]
+            }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"code\": \"123456\",\n  \"newPassword\": \"newPassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/auth/reset-password",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "auth", "reset-password"]
+            }
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"oldPassword123\",\n  \"newPassword\": \"newPassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/auth/change-password",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "auth", "change-password"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "User Management",
+      "description": "User profile and account management",
+      "item": [
+        {
+          "name": "Get User Profile",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/user/me",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "user", "me"]
+            }
+          }
+        },
+        {
+          "name": "Update User Profile",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Smith\",\n  \"phone\": \"+9876543210\",\n  \"companyName\": \"New Company\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/user/me",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "user", "me"]
+            }
+          }
+        },
+        {
+          "name": "Delete Own Account",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/user/me",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "user", "me"]
+            }
+          }
+        },
+        {
+          "name": "Upload Avatar",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "profileImage",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/user/upload-avatar",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "user", "upload-avatar"]
+            }
+          }
+        },
+        {
+          "name": "Get All Users (Admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/user/all-users?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "user", "all-users"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "AI Ad Generation",
+      "description": "Generate ads using AI",
+      "item": [
+        {
+          "name": "Generate Ad with AI",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productName\": \"Luxury Yacht\",\n  \"description\": \"High-end yacht for sale\",\n  \"targetAudience\": \"Wealthy entrepreneurs\",\n  \"tone\": \"professional\",\n  \"platform\": \"facebook\",\n  \"keywords\": [\"luxury\", \"yacht\", \"premium\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/ai/generate-ad",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "ai", "generate-ad"]
+            }
+          }
+        },
+        {
+          "name": "Save Generated Ad",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "adName",
+                  "value": "Summer Campaign",
+                  "type": "text"
+                },
+                {
+                  "key": "adContent",
+                  "value": "Amazing summer offer for luxury yachts",
+                  "type": "text"
+                },
+                {
+                  "key": "creativeImages",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/ai/save",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "ai", "save"]
+            }
+          }
+        },
+        {
+          "name": "Get All Ads",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/ai/all?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "ai", "all"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Ad by ID",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/ai/ad123",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "ai", "ad123"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Subscription & Payment",
+      "description": "Subscription plans and payment management",
+      "item": [
+        {
+          "name": "Get All Plans",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/subscription/get-all",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "subscription", "get-all"]
+            }
+          }
+        },
+        {
+          "name": "Get Plan by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/subscription/plan123",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "subscription", "plan123"]
+            }
+          }
+        },
+        {
+          "name": "Create Payment Checkout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"planId\": \"plan123\",\n  \"userId\": \"user123\",\n  \"successUrl\": \"https://app.saralemos.com/success\",\n  \"cancelUrl\": \"https://app.saralemos.com/cancel\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/subscription/payment/create-checkout",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "subscription", "payment", "create-checkout"]
+            }
+          }
+        },
+        {
+          "name": "Get Payment Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/subscription/payment/cs_1234567890",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "subscription", "payment", "cs_1234567890"]
+            }
+          }
+        },
+        {
+          "name": "Get Payment History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/subscription/payment/history/user123?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "subscription", "payment", "history", "user123"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verify Payment Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/subscription/payment/verify/cs_1234567890",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "subscription", "payment", "verify", "cs_1234567890"]
+            }
+          }
+        },
+        {
+          "name": "Get Payment Metrics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/subscription/metrics",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "subscription", "metrics"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "CMS & Content",
+      "description": "Content Management System endpoints",
+      "item": [
+        {
+          "name": "Upload CMS Asset",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "assetType",
+                  "value": "image",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/cms/upload",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "cms", "upload"]
+            }
+          }
+        },
+        {
+          "name": "Get All CMS Assets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/cms/assets?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "cms", "assets"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get All Blog Posts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/cms/blogs?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "cms", "blogs"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Blog Post",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "Getting Started with Social Media",
+                  "type": "text"
+                },
+                {
+                  "key": "slug",
+                  "value": "getting-started-social-media",
+                  "type": "text"
+                },
+                {
+                  "key": "content",
+                  "value": "<p>Blog content here...</p>",
+                  "type": "text"
+                },
+                {
+                  "key": "excerpt",
+                  "value": "Learn how to get started",
+                  "type": "text"
+                },
+                {
+                  "key": "thumbnail",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "author",
+                  "value": "John Doe",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/cms/blogs",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "cms", "blogs"]
+            }
+          }
+        },
+        {
+          "name": "Get Blog by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/cms/blogs/blog123",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "cms", "blogs", "blog123"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard Analytics",
+      "description": "Analytics and dashboard data",
+      "item": [
+        {
+          "name": "Get Dashboard Overview",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/dashboard/overview",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "dashboard", "overview"]
+            }
+          }
+        },
+        {
+          "name": "Get User Analytics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/dashboard/user-analytics",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "dashboard", "user-analytics"]
+            }
+          }
+        },
+        {
+          "name": "Get Revenue Trend",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/dashboard/revenue-trend",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "dashboard", "revenue-trend"]
+            }
+          }
+        },
+        {
+          "name": "Get User Analytics by Date Range",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/dashboard/user-analytics-range?startDate=2026-01-01&endDate=2026-05-20",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "dashboard", "user-analytics-range"],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2026-01-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2026-05-20"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Facebook Posts",
+      "description": "Facebook and Instagram post management",
+      "item": [
+        {
+          "name": "Create/Finalize Post",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "content",
+                  "value": "Check out our latest offer!",
+                  "type": "text"
+                },
+                {
+                  "key": "platforms",
+                  "value": "facebook",
+                  "type": "text"
+                },
+                {
+                  "key": "postType",
+                  "value": "TEXT_ONLY",
+                  "type": "text"
+                },
+                {
+                  "key": "status",
+                  "value": "DRAFT",
+                  "type": "text"
+                },
+                {
+                  "key": "pageId",
+                  "value": "facebook_page_123",
+                  "type": "text"
+                },
+                {
+                  "key": "postImages",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/facebookPost/finalize",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "facebookPost", "finalize"]
+            }
+          }
+        },
+        {
+          "name": "Get All Posts",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/facebookPost/?status=DRAFT&page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "facebookPost", ""],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "DRAFT"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Post by ID",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/facebookPost/post123",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "facebookPost", "post123"]
+            }
+          }
+        },
+        {
+          "name": "Get Post Status",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/facebookPost/post123/status",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "facebookPost", "post123", "status"]
+            }
+          }
+        },
+        {
+          "name": "Publish Draft Post",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"immediatePublish\": true,\n  \"pageId\": \"facebook_page_123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/facebookPost/post123/publish",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "facebookPost", "post123", "publish"]
+            }
+          }
+        },
+        {
+          "name": "Delete Post",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/facebookPost/post123",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "facebookPost", "post123"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Listings",
+      "description": "Yacht listing management",
+      "item": [
+        {
+          "name": "Extract Listing from PDF",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "pdf",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/listing/extract-pdf",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "listing", "extract-pdf"]
+            }
+          }
+        },
+        {
+          "name": "Create Yacht Listing",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "2023 Nimbus T11",
+                  "type": "text"
+                },
+                {
+                  "key": "description",
+                  "value": "Luxury yacht for sale",
+                  "type": "text"
+                },
+                {
+                  "key": "price",
+                  "value": "460000",
+                  "type": "text"
+                },
+                {
+                  "key": "currency",
+                  "value": "EUR",
+                  "type": "text"
+                },
+                {
+                  "key": "location",
+                  "value": "Hua Hin, Thailand",
+                  "type": "text"
+                },
+                {
+                  "key": "make",
+                  "value": "Nimbus",
+                  "type": "text"
+                },
+                {
+                  "key": "model",
+                  "value": "T11",
+                  "type": "text"
+                },
+                {
+                  "key": "yearBuilt",
+                  "value": "2023",
+                  "type": "text"
+                },
+                {
+                  "key": "length",
+                  "value": "40 ft",
+                  "type": "text"
+                },
+                {
+                  "key": "images",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/listing/create",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "listing", "create"]
+            }
+          }
+        },
+        {
+          "name": "Get All Listings",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/listing/all?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "listing", "all"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Listing by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/listing/listing123",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "listing", "listing123"]
+            }
+          }
+        },
+        {
+          "name": "Update Listing",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "Updated Title",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/listing/listing123",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "listing", "listing123"]
+            }
+          }
+        },
+        {
+          "name": "Delete Listing",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/listing/listing123",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "listing", "listing123"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Testimonials",
+      "description": "Customer testimonials management",
+      "item": [
+        {
+          "name": "Get Active Testimonials",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/testimonial/active",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "testimonial", "active"]
+            }
+          }
+        },
+        {
+          "name": "Create Testimonial (Admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "clientName",
+                  "value": "John Doe",
+                  "type": "text"
+                },
+                {
+                  "key": "content",
+                  "value": "Great service!",
+                  "type": "text"
+                },
+                {
+                  "key": "rating",
+                  "value": "5",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/testimonial/create",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "testimonial", "create"]
+            }
+          }
+        },
+        {
+          "name": "Get All Testimonials (Admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/v1/testimonial/all",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "testimonial", "all"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Contact Form",
+      "description": "Contact form submission",
+      "item": [
+        {
+          "name": "Submit Contact Form",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"phone\": \"+1234567890\",\n  \"subject\": \"Inquiry about services\",\n  \"message\": \"I would like to know more about your services\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/contact/",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "contact", ""]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000/api",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

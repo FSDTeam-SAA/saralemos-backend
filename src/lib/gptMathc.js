@@ -40,6 +40,10 @@ matching this schema:
   description
 }
 
+For constructions, return booleans only. If a construction material is not
+clearly present in the text, set that field to false. Do not return material
+names like "Fiberglass" as values inside constructions.
+
 TEXT:
 """${text}"""
 `;

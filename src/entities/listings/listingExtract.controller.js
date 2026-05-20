@@ -6,6 +6,113 @@ import { saveImageBufferToDisk } from '../../lib/saveImageTemp.js';
 import { YachtListing } from './listing.model.js';
 import fs from 'fs';
 
+const constructionDefaults = {
+  GRP: false,
+  Steel: false,
+  Aluminum: false,
+  Wood: false,
+  Composite: false
+};
+
+const constructionAliases = {
+  GRP: ['grp', 'fiberglass', 'fibreglass', 'glass reinforced plastic'],
+  Steel: ['steel'],
+  Aluminum: ['aluminum', 'aluminium'],
+  Wood: ['wood'],
+  Composite: ['composite', 'carbon fiber', 'carbon fibre']
+};
+
+const parseJsonField = (value, fallback) => {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value !== 'string') return value;
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+};
+
+const parseBooleanLikeValue = (value) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value === 1;
+  if (typeof value !== 'string') return undefined;
+
+  const normalized = value.trim().toLowerCase();
+  if (['true', 'yes', 'y', '1', 'available', 'present'].includes(normalized)) {
+    return true;
+  }
+  if (
+    ['false', 'no', 'n', '0', 'none', 'n/a', 'na', 'unknown', ''].includes(
+      normalized
+    )
+  ) {
+    return false;
+  }
+
+  return undefined;
+};
+
+const findConstructionField = (key) =>
+  Object.keys(constructionDefaults).find(
+    (field) => field.toLowerCase() === String(key).toLowerCase()
+  );
+
+const applyConstructionText = (result, text) => {
+  const normalizedText = String(text || '').toLowerCase();
+
+  Object.entries(constructionAliases).forEach(([field, aliases]) => {
+    if (aliases.some((alias) => normalizedText.includes(alias))) {
+      result[field] = true;
+    }
+  });
+};
+
+const normalizeConstructions = (value) => {
+  const result = { ...constructionDefaults };
+  const parsedValue = parseJsonField(value, {});
+
+  if (Array.isArray(parsedValue)) {
+    parsedValue.forEach((item) => applyConstructionText(result, item));
+    return result;
+  }
+
+  if (typeof parsedValue === 'string') {
+    applyConstructionText(result, parsedValue);
+    return result;
+  }
+
+  if (!parsedValue || typeof parsedValue !== 'object') return result;
+
+  Object.entries(parsedValue).forEach(([key, fieldValue]) => {
+    const field = findConstructionField(key);
+    const booleanValue = parseBooleanLikeValue(fieldValue);
+
+    if (field && booleanValue !== undefined) {
+      result[field] = booleanValue;
+      return;
+    }
+
+    if (field && fieldValue !== undefined && fieldValue !== null) {
+      result[field] = true;
+    }
+
+    applyConstructionText(result, key);
+    applyConstructionText(result, fieldValue);
+  });
+
+  return result;
+};
+
+const normalizeMatchedListingData = (matchedData) => {
+  if (!matchedData || typeof matchedData !== 'object') return matchedData;
+
+  return {
+    ...matchedData,
+    constructions: normalizeConstructions(matchedData.constructions)
+  };
+};
+
 export const extractListingFromPdf = async (req, res) => {
   try {
     // Check for uploaded PDF
@@ -20,7 +127,9 @@ export const extractListingFromPdf = async (req, res) => {
     const { extractedText, images } = await extractPdfData(pdfPath);
 
     // 2️⃣ GPT Field Matching
-    const matchedData = await matchListingFieldsWithGPT(extractedText);
+    const matchedData = normalizeMatchedListingData(
+      await matchListingFieldsWithGPT(extractedText)
+    );
 
     // 3️⃣ Upload extracted images to Cloudinary
     const imageUrls = [];
@@ -86,14 +195,10 @@ export const createYachtListing = async (req, res) => {
     }
 
     // 2️⃣ Parse nested JSON fields
-    const constructions = req.body.constructions
-      ? JSON.parse(req.body.constructions)
-      : {};
-    const lengthOverall = req.body.lengthOverall
-      ? JSON.parse(req.body.lengthOverall)
-      : undefined;
-    const beam = req.body.beam ? JSON.parse(req.body.beam) : undefined;
-    const draft = req.body.draft ? JSON.parse(req.body.draft) : undefined;
+    const constructions = normalizeConstructions(req.body.constructions);
+    const lengthOverall = parseJsonField(req.body.lengthOverall, undefined);
+    const beam = parseJsonField(req.body.beam, undefined);
+    const draft = parseJsonField(req.body.draft, undefined);
 
     let imageUrls = [];
 
@@ -217,14 +322,13 @@ export const updateYachtListingById = async (req, res) => {
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
     // 1️⃣ Parse nested JSON fields if they exist
-    const constructions = req.body.constructions
-      ? JSON.parse(req.body.constructions)
-      : undefined;
-    const lengthOverall = req.body.lengthOverall
-      ? JSON.parse(req.body.lengthOverall)
-      : undefined;
-    const beam = req.body.beam ? JSON.parse(req.body.beam) : undefined;
-    const draft = req.body.draft ? JSON.parse(req.body.draft) : undefined;
+    const constructions =
+      req.body.constructions !== undefined
+        ? normalizeConstructions(req.body.constructions)
+        : undefined;
+    const lengthOverall = parseJsonField(req.body.lengthOverall, undefined);
+    const beam = parseJsonField(req.body.beam, undefined);
+    const draft = parseJsonField(req.body.draft, undefined);
 
     // 2️⃣ Handle images
     let imageUrls = [];
