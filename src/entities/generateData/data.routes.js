@@ -8,7 +8,7 @@ import { publishAd } from '../facebookAd/facebookAd.controller.js';
 const router = express.Router();
 
 // POST /api/generate-ad
-router.post('/generate-ad', generateAd);
+router.post('/generate-ad',verifyToken,userAdminMiddleware, generateAd);
 
 router.post('/save',verifyToken,userAdminMiddleware, multerUpload([{ name: "ads", maxCount: 10 },]),createAd);
 router.get('/all', verifyToken, userAdminMiddleware,getAllAds);

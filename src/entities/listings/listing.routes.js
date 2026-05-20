@@ -8,6 +8,8 @@ const router = express.Router();
 
 router.post(
   "/extract-pdf",
+  verifyToken,
+  userMiddleware,
   multerUpload([
   { name: "pdf", maxCount: 1 }]),
   extractListingFromPdf

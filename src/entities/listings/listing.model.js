@@ -2,8 +2,8 @@ import mongoose from "mongoose";
 import User from "../auth/auth.model.js";
 
 const dimensionsSchema = new mongoose.Schema({
-  value: { type: Number, required: true },
-  unit: { type: String, required: true } // e.g., "m", "ft"
+  value: { type: Number },
+  unit: { type: String } // e.g., "m", "ft"
 }, { _id: false });
 
 const constructionsSchema = new mongoose.Schema({

@@ -55,7 +55,7 @@ const parseBooleanLikeValue = (value) => {
 
 const findConstructionField = (key) =>
   Object.keys(constructionDefaults).find(
-    (field) => field.toLowerCase() === String(key).toLowerCase()
+    (field) => field.toLowerCa git config pull.rebase false se() === String(key).toLowerCase()
   );
 
 const applyConstructionText = (result, text) => {
@@ -112,56 +112,227 @@ const normalizeMatchedListingData = (matchedData) => {
     constructions: normalizeConstructions(matchedData.constructions)
   };
 };
+// Helper function to prepare and validate yacht listing data
+function prepareYachtListingData(data) {
+  const prepared = { ...data };
+  
+  // Ensure dimensions have proper structure if extracted
+  const ensureDimension = (dim) => {
+    if (!dim) return null;
+    if (typeof dim === 'object' && dim.value !== null && dim.value !== undefined) {
+      return {
+        value: Number(dim.value),
+        unit: dim.unit || 'm'
+      };
+    }
+    return null;
+  };
+
+  if (prepared.lengthOverall) prepared.lengthOverall = ensureDimension(prepared.lengthOverall);
+  if (prepared.beam) prepared.beam = ensureDimension(prepared.beam);
+  if (prepared.draft) prepared.draft = ensureDimension(prepared.draft);
+
+  // Remove null dimensions
+  if (!prepared.lengthOverall) delete prepared.lengthOverall;
+  if (!prepared.beam) delete prepared.beam;
+  if (!prepared.draft) delete prepared.draft;
+
+  // Clean up constructions object
+  if (prepared.constructions && Object.keys(prepared.constructions).length === 0) {
+    delete prepared.constructions;
+  }
+
+  return prepared;
+}
+
+// Helper to validate and score yacht name confidence
+function validateYachtNameConfidence(yachtName, otherFields) {
+  if (!yachtName) return { confidence: 0, yachtName: null, message: 'No yacht name found' };
+
+  const genericTerms = ['model', 'yacht', 'boat', 'vessel', 'ship', 'type', 'series', 'class', 'specification'];
+  const isGeneric = genericTerms.some(term => yachtName.toLowerCase().includes(term));
+  
+  // Common builder names to exclude
+  const commonBuilders = ['sunseeker', 'azimut', 'beneteau', 'ferretti', 'pershing', 'ritz-carlton', 'maserati', 'benetti', 'trinity'];
+  const isBuilder = commonBuilders.some(builder => yachtName.toLowerCase().includes(builder));
+  
+  // Common location names to exclude
+  const commonLocations = ['miami', 'monaco', 'dubai', 'caribbean', 'mediterranean', 'florida', 'california'];
+  const isLocation = commonLocations.some(loc => yachtName.toLowerCase().includes(loc));
+  
+  let confidence = 85; // Start with good confidence for contextually-detected names
+  let message = 'Yacht name extracted from context clues';
+  
+  if (isGeneric) {
+    confidence = 25;
+    message = 'Detected term is too generic - likely not the actual yacht name';
+  }
+  if (isBuilder) {
+    confidence = 15;
+    message = 'Detected term appears to be builder name, not yacht name';
+  }
+  if (isLocation) {
+    confidence = 20;
+    message = 'Detected term appears to be location, not yacht name';
+  }
+  if (yachtName.length < 2) {
+    confidence = 10;
+    message = 'Name too short to be valid yacht name';
+  }
+  if (yachtName.length > 100) {
+    confidence = 40;
+    message = 'Name seems unusually long - may be partial description';
+  }
+  
+  // Positive indicators for yacht name legitimacy
+  if (yachtName.length >= 3 && yachtName.length <= 40) {
+    confidence = Math.min(100, confidence + 10); // Reasonable length
+  }
+  if (/^[A-Z][a-zA-Z\s-]*$/.test(yachtName)) {
+    confidence = Math.min(100, confidence + 5); // Proper capitalization
+  }
+  if (!isGeneric && !isBuilder && !isLocation) {
+    confidence = Math.min(100, confidence + 10); // Passes exclusion checks
+  }
+
+  return { 
+    confidence, 
+    yachtName, 
+    message,
+    detectedMethod: 'contextual',
+    suggestion: otherFields?.model || otherFields?.builder 
+  };
+}
 
 export const extractListingFromPdf = async (req, res) => {
   try {
-    // Check for uploaded PDF
-    if (!req.files?.pdf?.[0]) {
-      return res.status(400).json({ message: 'PDF file required' });
+    const userId = req.user?._id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    // 1. Set headers for Streaming (SSE)
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    const sendEvent = (event, data) => {
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    };
+
+    // Check user's listing limit
+    const user = await req.user.populate('subscriptionPlanId');
+    const allowedListings = user.allowedListings || 5;
+
+    const existingListingsCount = await YachtListing.countDocuments({
+      createdBy: userId,
+      isActive: true
+    });
+
+    if (existingListingsCount >= allowedListings) {
+      sendEvent('error', { message: `Limit reached (${allowedListings})` });
+      return res.end();
     }
 
-    const pdfFile = req.files.pdf[0]; // Access the first file
+    // Check for uploaded PDF
+    if (!req.files?.pdf?.[0]) {
+      sendEvent('error', { message: 'PDF file required' });
+      return res.end();
+    }
+
+    const pdfFile = req.files.pdf[0];
     const pdfPath = pdfFile.path;
+
+    sendEvent('status', { message: 'Extracting PDF text and images...' });
 
     // 1️⃣ Adobe Extract
     const { extractedText, images } = await extractPdfData(pdfPath);
 
+<<<<<<< HEAD
     // 2️⃣ GPT Field Matching
     const matchedData = normalizeMatchedListingData(
       await matchListingFieldsWithGPT(extractedText)
     );
+=======
+    sendEvent('status', { message: 'Matching fields with AI...' });
+>>>>>>> 2a0c01d7afec79eb1b878beccea5112409af109e
 
-    // 3️⃣ Upload extracted images to Cloudinary
-    const imageUrls = [];
+    // 2️⃣ GPT Field Matching (with streaming callback)
+    const matchedData = await matchListingFieldsWithGPT(extractedText, (partialData) => {
+      sendEvent('chunk', { partialData });
+    });
 
-    for (const img of images) {
-      const tempPath = saveImageBufferToDisk(img.buffer, img.name);
+    sendEvent('status', { message: 'Uploading images...' });
 
-      const uploaded = await cloudinaryUpload(
-        tempPath,
-        undefined,
-        'yacht-listings'
-      );
-
-      if (uploaded?.secure_url) {
-        imageUrls.push(uploaded.secure_url);
+    // 3️⃣ Upload extracted images to Cloudinary (parallel)
+    const uploadPromises = images.map(async (img) => {
+      try {
+        const tempPath = saveImageBufferToDisk(img.buffer, img.name);
+        const uploaded = await cloudinaryUpload(tempPath, undefined, 'yacht-listings');
+        if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+        return uploaded?.secure_url || null;
+      } catch (err) {
+        console.error('Image upload error:', err);
+        return null;
       }
+    });
+
+    const imageUrls = (await Promise.all(uploadPromises)).filter(Boolean);
+
+    sendEvent('status', { message: 'Saving listing...' });
+
+    // 4️⃣ Validate and prepare data before saving
+    const preparedData = prepareYachtListingData(matchedData);
+
+    // Validate yacht name with confidence scoring
+    const nameValidation = validateYachtNameConfidence(preparedData.yachtName, preparedData);
+    
+    console.log(`Yacht name confidence: ${nameValidation.confidence}%`, nameValidation);
+    
+    if (!preparedData.yachtName) {
+      sendEvent('error', { 
+        message: 'Yacht name could not be extracted. Please provide it manually.',
+        confidence: 0,
+        suggestion: preparedData.model || preparedData.builder
+      });
+      return res.end();
     }
 
-    // 4️⃣ Response for UI (preview + edit)
-    res.json({
-      success: true,
-      extractedText,
-      matchedData,
-      images: imageUrls
+    // If confidence is low, warn the user but still save
+    if (nameValidation.confidence < 60) {
+      sendEvent('warning', { 
+        message: nameValidation.message,
+        confidence: nameValidation.confidence,
+        detectedName: preparedData.yachtName,
+        suggestion: nameValidation.suggestion
+      });
+    }
+
+    // Create the listing automatically
+    const listing = await YachtListing.create({
+      ...preparedData,
+      images: imageUrls,
+      createdBy: userId,
+      isActive: true
     });
+
+    // 5️⃣ Final Response
+    sendEvent('final', { 
+      message: 'Success', 
+      listing,
+      extractionQuality: {
+        yachtNameConfidence: nameValidation.confidence,
+        yachtName: preparedData.yachtName,
+        fieldsExtracted: Object.keys(preparedData).length,
+        imagesExtracted: imageUrls.length,
+        warning: nameValidation.confidence < 60 ? nameValidation.message : null
+      },
+      extractedText 
+    });
+    
+    res.end();
   } catch (err) {
     console.error(err);
-    res.status(500).json({
-      success: false,
-      message: 'PDF extraction failed',
-      error: err.message
-    });
+    res.write(`event: error\ndata: ${JSON.stringify({ message: err.message })}\n\n`);
+    res.end();
   }
 };
 
