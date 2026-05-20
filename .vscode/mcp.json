@@ -1,9 +1,0 @@
-{
-	"servers": {
-		"PlanetScale": {
-			"url": "https://mcp.pscale.dev/mcp/planetscale",
-			"type": "http"
-		}
-	},
-	"inputs": []
-}
