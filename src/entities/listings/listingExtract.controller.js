@@ -5,6 +5,8 @@ import { createFilter, createPaginationInfo } from '../../lib/pagination.js';
 import { saveImageBufferToDisk } from '../../lib/saveImageTemp.js';
 import { YachtListing } from './listing.model.js';
 import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
 
 const constructionDefaults = {
   GRP: false,
@@ -205,9 +207,18 @@ function validateYachtNameConfidence(yachtName, otherFields) {
 }
 
 export const extractListingFromPdf = async (req, res) => {
+  let pdfPath;
+  let requestTempDir;
+
   try {
     const userId = req.user?._id;
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+    const requestId = `${Date.now()}-${crypto.randomUUID()}`;
+    requestTempDir = path.resolve(
+      'uploads/temp/listing-extract',
+      String(userId),
+      requestId
+    );
 
     // 1. Set headers for Streaming (SSE)
     res.setHeader('Content-Type', 'text/event-stream');
@@ -225,7 +236,7 @@ export const extractListingFromPdf = async (req, res) => {
     }
 
     const pdfFile = req.files.pdf[0];
-    const pdfPath = pdfFile.path;
+    pdfPath = pdfFile.path;
 
     sendEvent('status', { message: 'Extracting PDF text and images...' });
 
@@ -248,9 +259,16 @@ export const extractListingFromPdf = async (req, res) => {
     // 3️⃣ Upload extracted images to Cloudinary (parallel)
     const uploadPromises = images.map(async (img) => {
       try {
-        const tempPath = saveImageBufferToDisk(img.buffer, img.name);
-        const uploaded = await cloudinaryUpload(tempPath, undefined, 'yacht-listings');
-        if (tempPath && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+        const tempPath = saveImageBufferToDisk(
+          img.buffer,
+          img.name,
+          requestTempDir
+        );
+        const uploaded = await cloudinaryUpload(
+          tempPath,
+          undefined,
+          `yacht-listings/${userId}/${requestId}`
+        );
         return uploaded?.secure_url || null;
       } catch (err) {
         console.error('Image upload error:', err);
@@ -314,8 +332,37 @@ export const extractListingFromPdf = async (req, res) => {
     res.end();
   } catch (err) {
     console.error(err);
-    res.write(`event: error\ndata: ${JSON.stringify({ message: err.message })}\n\n`);
+    if (!res.headersSent) {
+      res.status(500).json({ message: err.message });
+      return;
+    }
+
+    res.write(
+      `event: error\ndata: ${JSON.stringify({ message: err.message })}\n\n`
+    );
     res.end();
+  } finally {
+    try {
+      if (pdfPath && fs.existsSync(pdfPath)) {
+        fs.unlinkSync(pdfPath);
+      }
+    } catch (unlinkError) {
+      console.warn(
+        `Could not delete uploaded PDF ${pdfPath}:`,
+        unlinkError.message
+      );
+    }
+
+    try {
+      if (requestTempDir && fs.existsSync(requestTempDir)) {
+        fs.rmSync(requestTempDir, { recursive: true, force: true });
+      }
+    } catch (cleanupError) {
+      console.warn(
+        `Could not delete listing extract temp folder ${requestTempDir}:`,
+        cleanupError.message
+      );
+    }
   }
 };
 
