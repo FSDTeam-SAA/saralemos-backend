@@ -121,6 +121,7 @@ export const registerUser = async (req, res, next) => {
     }
 
     const data = await registerUserService(payload);
+    console.log(data)
     generateResponse(res, 201, true, 'Registered user successfully!', data);
   } catch (error) {
     console.error('Register error:', error);
