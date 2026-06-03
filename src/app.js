@@ -38,7 +38,13 @@ const allowedOrigins = [
   'https://sara-lemos-client-dashboard-cyan.vercel.app',
   'https://saralemos1978-website-brown.vercel.app',
   'https://saralemos-admin-dasboard-seven.vercel.app',
-  'https://sara-lemos-client-dashboard-53u6nyn9c.vercel.app'
+  'https://sara-lemos-client-dashboard-53u6nyn9c.vercel.app',
+  'https://limepitch.com',
+'https://admin.limepitch.com',
+'https://dashboaard.limepitch.com',
+'https://api.limepitch.com',
+ 'https://www.limepitch.com',
+
 
 ];
 
