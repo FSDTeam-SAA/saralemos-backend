@@ -41,7 +41,7 @@ const allowedOrigins = [
   'https://sara-lemos-client-dashboard-53u6nyn9c.vercel.app',
   'https://limepitch.com',
 'https://admin.limepitch.com',
-'https://dashboaard.limepitch.com',
+'https://dashboard.limepitch.com',
 'https://api.limepitch.com',
  'https://www.limepitch.com',
 
