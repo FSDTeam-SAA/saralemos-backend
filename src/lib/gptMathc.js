@@ -66,7 +66,7 @@ matching this schema:
   model,
   location,
   guestCapacity,
-  price,
+  Price,
   bathRooms,
   bedRooms,
   cabins,

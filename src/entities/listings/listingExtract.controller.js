@@ -142,6 +142,28 @@ const mapWithConcurrency = async (items, concurrency, mapper) => {
 function prepareYachtListingData(data) {
   const prepared = { ...data };
 
+  if (prepared.Price === undefined && prepared.price !== undefined) {
+    prepared.Price = prepared.price;
+  }
+  delete prepared.price;
+
+  if (
+    prepared.Price !== undefined &&
+    prepared.Price !== null &&
+    prepared.Price !== ''
+  ) {
+    const numericPrice =
+      typeof prepared.Price === 'number'
+        ? prepared.Price
+        : Number(String(prepared.Price).replace(/[^0-9.-]/g, ''));
+
+    if (Number.isFinite(numericPrice)) {
+      prepared.Price = numericPrice;
+    } else {
+      delete prepared.Price;
+    }
+  }
+
   // Ensure dimensions have proper structure if extracted
   const ensureDimension = (dim) => {
     if (!dim) return null;
