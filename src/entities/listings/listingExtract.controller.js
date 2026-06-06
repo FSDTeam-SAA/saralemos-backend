@@ -115,6 +115,41 @@ const normalizeMatchedListingData = (matchedData) => {
   };
 };
 
+const hasTrueConstruction = (constructions) =>
+  constructions &&
+  Object.values(constructions).some((value) => value === true);
+
+const getExtractedFieldNames = (data) => {
+  if (!data || typeof data !== 'object') return [];
+
+  return Object.entries(data)
+    .filter(([key, value]) => {
+      if (key === 'constructions') return hasTrueConstruction(value);
+      if (value === null || value === undefined || value === '') return false;
+      if (Array.isArray(value)) return value.length > 0;
+      if (typeof value === 'object') return Object.keys(value).length > 0;
+      return true;
+    })
+    .map(([key]) => key);
+};
+
+const getFallbackYachtName = (preparedData, pdfFile, requestId) => {
+  const modelAndBuilder = [preparedData.builder, preparedData.model]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+
+  if (modelAndBuilder) return modelAndBuilder;
+
+  const fileBaseName = path
+    .basename(pdfFile?.originalname || '', path.extname(pdfFile?.originalname || ''))
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return fileBaseName || `Untitled Yacht ${requestId.split('-')[0]}`;
+};
+
 const parsePositiveInteger = (value, fallback) => {
   const parsed = Number.parseInt(value, 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
@@ -172,8 +207,11 @@ function prepareYachtListingData(data) {
       dim.value !== null &&
       dim.value !== undefined
     ) {
+      const value = Number(dim.value);
+      if (!Number.isFinite(value)) return null;
+
       return {
-        value: Number(dim.value),
+        value,
         unit: dim.unit || 'm'
       };
     }
@@ -352,9 +390,90 @@ export const extractListingFromPdf = async (req, res) => {
       })
     );
 
+    // 3️⃣ Validate and prepare data before uploading images or saving
+    const preparedData = prepareYachtListingData(matchedData);
+    const extractionWarnings = [];
+    let fallbackNameUsed = false;
+    let extractedFieldNames = getExtractedFieldNames(preparedData);
+
+    if (extractedFieldNames.length === 0) {
+      const warning = {
+        message:
+          'AI could not identify listing fields from the extracted PDF text. Continuing with uploaded images and fallback data.',
+        confidence: 0,
+        partialData: preparedData,
+        extractionQuality: {
+          fieldsExtracted: 0,
+          extractedTextLength: extractedText.length,
+          imageCandidatesFound: imageStats?.extractedImages || images.length,
+          imageCandidatesAfterDedupe:
+            imageStats?.uniqueImages || images.length,
+          imageSelectionLimit: imageStats?.maxImages || maxImages
+        },
+        extractedTextPreview: extractedText.slice(0, 1200)
+      };
+
+      extractionWarnings.push(warning.message);
+      sendEvent('warning', warning);
+    }
+
+    if (!preparedData.yachtName) {
+      preparedData.yachtName = getFallbackYachtName(
+        preparedData,
+        pdfFile,
+        requestId
+      );
+      fallbackNameUsed = true;
+      extractedFieldNames = getExtractedFieldNames(preparedData);
+
+      const warning = {
+        message:
+          'Yacht name could not be extracted. A fallback name was used so the listing can still be saved.',
+        confidence: 0,
+        fallbackYachtName: preparedData.yachtName,
+        suggestion: preparedData.model || preparedData.builder || null,
+        partialData: preparedData,
+        extractionQuality: {
+          fieldsExtracted: extractedFieldNames.length,
+          extractedFields: extractedFieldNames,
+          extractedTextLength: extractedText.length,
+          imageCandidatesFound: imageStats?.extractedImages || images.length,
+          imageCandidatesAfterDedupe:
+            imageStats?.uniqueImages || images.length,
+          imageSelectionLimit: imageStats?.maxImages || maxImages
+        },
+        extractedTextPreview: extractedText.slice(0, 1200)
+      };
+
+      extractionWarnings.push(warning.message);
+      sendEvent('warning', warning);
+    }
+
+    // Validate yacht name with confidence scoring
+    const nameValidation = validateYachtNameConfidence(
+      preparedData.yachtName,
+      preparedData
+    );
+
+    console.log(
+      `Yacht name confidence: ${nameValidation.confidence}%`,
+      nameValidation
+    );
+
+    // If confidence is low, warn the user but still save
+    if (nameValidation.confidence < 60) {
+      extractionWarnings.push(nameValidation.message);
+      sendEvent('warning', {
+        message: nameValidation.message,
+        confidence: nameValidation.confidence,
+        detectedName: preparedData.yachtName,
+        suggestion: nameValidation.suggestion
+      });
+    }
+
     sendEvent('status', { message: 'Uploading images...' });
 
-    // 3️⃣ Upload selected images to Cloudinary with bounded concurrency
+    // 4️⃣ Upload selected images to Cloudinary with bounded concurrency
     const uploadedImages = await mapWithConcurrency(images, 4, async (img) => {
       try {
         const tempPath = saveImageBufferToDisk(
@@ -378,40 +497,6 @@ export const extractListingFromPdf = async (req, res) => {
 
     sendEvent('status', { message: 'Saving listing...' });
 
-    // 4️⃣ Validate and prepare data before saving
-    const preparedData = prepareYachtListingData(matchedData);
-
-    // Validate yacht name with confidence scoring
-    const nameValidation = validateYachtNameConfidence(
-      preparedData.yachtName,
-      preparedData
-    );
-
-    console.log(
-      `Yacht name confidence: ${nameValidation.confidence}%`,
-      nameValidation
-    );
-
-    if (!preparedData.yachtName) {
-      sendEvent('error', {
-        message:
-          'Yacht name could not be extracted. Please provide it manually.',
-        confidence: 0,
-        suggestion: preparedData.model || preparedData.builder
-      });
-      return res.end();
-    }
-
-    // If confidence is low, warn the user but still save
-    if (nameValidation.confidence < 60) {
-      sendEvent('warning', {
-        message: nameValidation.message,
-        confidence: nameValidation.confidence,
-        detectedName: preparedData.yachtName,
-        suggestion: nameValidation.suggestion
-      });
-    }
-
     // Create the listing automatically
     const listing = await YachtListing.create({
       ...preparedData,
@@ -427,12 +512,15 @@ export const extractListingFromPdf = async (req, res) => {
       extractionQuality: {
         yachtNameConfidence: nameValidation.confidence,
         yachtName: preparedData.yachtName,
-        fieldsExtracted: Object.keys(preparedData).length,
+        fieldsExtracted: extractedFieldNames.length,
+        extractedFields: extractedFieldNames,
         imagesExtracted: imageUrls.length,
         imageCandidatesFound: imageStats?.extractedImages || images.length,
         imageCandidatesAfterDedupe: imageStats?.uniqueImages || images.length,
         imageSelectionLimit: imageStats?.maxImages || maxImages,
-        warning: nameValidation.confidence < 60 ? nameValidation.message : null
+        fallbackNameUsed,
+        warnings: extractionWarnings,
+        warning: extractionWarnings[0] || null
       },
       extractedText
     });

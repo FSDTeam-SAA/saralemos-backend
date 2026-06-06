@@ -147,6 +147,7 @@ TEXT CHUNK:
       body: JSON.stringify({
         model: "gpt-4o-mini",
         temperature: 0.1,
+        response_format: { type: "json_object" },
         messages: [{ role: "user", content: prompt }]
       })
     });
@@ -204,6 +205,10 @@ async function processChunksInParallel(chunks, onChunk) {
 }
 
 export const matchListingFieldsWithGPT = async (text, onChunk) => {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY is not configured");
+  }
+
   if (!text || text.trim().length === 0) {
     throw new Error("No extractable text provided to GPT");
   }
@@ -212,9 +217,14 @@ export const matchListingFieldsWithGPT = async (text, onChunk) => {
   console.log(`Processing ${chunks.length} text chunks in parallel...`);
   
   const results = await processChunksInParallel(chunks, onChunk);
+  const successfulResults = results.filter(r => r);
+
+  if (successfulResults.length === 0) {
+    throw new Error("AI field matching failed for all text chunks");
+  }
   
   let finalData = { constructions: {} };
-  results.filter(r => r).forEach(r => {
+  successfulResults.forEach(r => {
     finalData = mergeExtraction(finalData, r);
   });
 
