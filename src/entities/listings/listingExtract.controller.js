@@ -381,18 +381,33 @@ export const extractListingFromPdf = async (req, res) => {
 
     sendEvent('status', { message: 'Matching fields with AI...' });
 
+    const extractionWarnings = [];
+
     // 2️⃣ GPT Field Matching (with streaming callback)
-    const matchedData = normalizeMatchedListingData(
-      await matchListingFieldsWithGPT(extractedText, (partialData) => {
-        sendEvent('chunk', {
-          partialData: normalizeMatchedListingData(partialData)
-        });
-      })
-    );
+    let matchedData = normalizeMatchedListingData({ constructions: {} });
+    try {
+      matchedData = normalizeMatchedListingData(
+        await matchListingFieldsWithGPT(extractedText, (partialData) => {
+          sendEvent('chunk', {
+            partialData: normalizeMatchedListingData(partialData)
+          });
+        })
+      );
+    } catch (aiError) {
+      const warning = {
+        message:
+          'AI field matching failed. Continuing with uploaded images and fallback data.',
+        reason: aiError.message,
+        confidence: 0,
+        extractedTextPreview: extractedText.slice(0, 1200)
+      };
+
+      extractionWarnings.push(warning.message);
+      sendEvent('warning', warning);
+    }
 
     // 3️⃣ Validate and prepare data before uploading images or saving
     const preparedData = prepareYachtListingData(matchedData);
-    const extractionWarnings = [];
     let fallbackNameUsed = false;
     let extractedFieldNames = getExtractedFieldNames(preparedData);
 
