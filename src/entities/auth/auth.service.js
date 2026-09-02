@@ -97,7 +97,7 @@ export const registerUserService = async (payload) => {
 
     // portfolio
     customHeadline,
-    portfolioPageSlug,
+    portfolioPageSlug: portfolioPageSlug && portfolioPageSlug.trim() !== '' ? portfolioPageSlug.trim() : undefined,
     qrCodeUrl
   });
 
