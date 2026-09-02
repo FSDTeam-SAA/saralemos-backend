@@ -19,7 +19,7 @@
    - [Media Connection](#media-connection-endpoints)
    - [Contact Form](#contact-form-endpoints)
 5. [Environment Variables](#environment-variables)
-6. [Common Response Formats](#common-response-formats)
+6. [Common Response Formats](#common-response-formatss)
 
 ---
 
