@@ -106,12 +106,34 @@ const normalizeConstructions = (value) => {
   return result;
 };
 
+const normalizeAdditionalDetails = (value) => {
+  const parsedValue = parseJsonField(value, []);
+  if (!Array.isArray(parsedValue)) return [];
+
+  const seen = new Set();
+  return parsedValue
+    .map((detail) => ({
+      section: String(detail?.section || 'Additional details').trim(),
+      label: String(detail?.label || '').trim(),
+      value: String(detail?.value ?? '').trim()
+    }))
+    .filter((detail) => {
+      if (!detail.label || !detail.value) return false;
+      const key = `${detail.section}|${detail.label}|${detail.value}`.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 250);
+};
+
 const normalizeMatchedListingData = (matchedData) => {
   if (!matchedData || typeof matchedData !== 'object') return matchedData;
 
   return {
     ...matchedData,
-    constructions: normalizeConstructions(matchedData.constructions)
+    constructions: normalizeConstructions(matchedData.constructions),
+    additionalDetails: normalizeAdditionalDetails(matchedData.additionalDetails)
   };
 };
 
@@ -153,6 +175,100 @@ const getFallbackYachtName = (preparedData, pdfFile, requestId) => {
 const parsePositiveInteger = (value, fallback) => {
   const parsed = Number.parseInt(value, 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const getLinesAfterLabel = (text, label, count) => {
+  const match = new RegExp(`${label}\\s*:\\s*\\n([\\s\\S]{0,700})`, 'i').exec(text);
+  if (!match) return [];
+
+  return match[1]
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, count);
+};
+
+const getInlineNumber = (text, labels) => {
+  for (const label of labels) {
+    const match = new RegExp(`${label}\\s*:\\s*([0-9]+)`, 'i').exec(text);
+    if (match) return Number(match[1]);
+  }
+  return undefined;
+};
+
+const toDimension = (value) => {
+  const match = String(value || '').match(/([0-9]+(?:\.[0-9]+)?)\s*(ft|feet|m|meter|metre)/i);
+  if (!match) return undefined;
+  return { value: Number(match[1]), unit: /^f/i.test(match[2]) ? 'ft' : 'm' };
+};
+
+// Some broker PDFs place table labels in one column and their values in the
+// next. This fills the regular listing inputs even if the AI response is
+// incomplete, while leaving unrecognised information in pdfExtractedText.
+const getFallbackFieldsFromPdfText = (text) => {
+  const result = {};
+  const boatDetails = getLinesAfterLabel(text, 'Condition', 6);
+  if (boatDetails.length === 6) {
+    const [builder, model, yearBuilt, length, price] = boatDetails;
+    if (builder) result.builder = builder;
+    if (model) result.model = model;
+    if (/^\d{4}$/.test(yearBuilt)) result.yearBuilt = Number(yearBuilt);
+    if (length) result.lengthOverall = toDimension(length);
+    if (price) result.Price = price;
+    if (price?.includes('€')) result.priceCurrency = '€';
+    else if (price?.includes('$')) result.priceCurrency = '$';
+  }
+
+  const classDetails = getLinesAfterLabel(text, 'Guest Heads', 6);
+  if (classDetails.length === 6) {
+    const [yachtType, hullMaterial, beam, location, cabins, bathRooms] = classDetails;
+    if (yachtType) result.yachtType = yachtType;
+    if (hullMaterial) result.constructions = normalizeConstructions(hullMaterial);
+    if (beam) result.beam = toDimension(beam);
+    if (location) result.location = location;
+    if (/^\d+$/.test(cabins)) result.cabins = Number(cabins);
+    if (/^\d+$/.test(bathRooms)) result.bathRooms = Number(bathRooms);
+  }
+
+  const fuelAndSpeed = getLinesAfterLabel(text, 'Max Draft', 3);
+  if (fuelAndSpeed.length === 3) {
+    const [fuelType, maxSpeed, draft] = fuelAndSpeed;
+    if (fuelType) result.additionalDetails = [
+      { section: 'Performance', label: 'Fuel Type', value: fuelType },
+      { section: 'Performance', label: 'Max Speed', value: maxSpeed }
+    ];
+    if (draft) result.draft = toDimension(draft);
+  }
+
+  const guestCapacity = getInlineNumber(text, ['Seating Capacity', 'Max Passengers']);
+  if (guestCapacity !== undefined) result.guestCapacity = guestCapacity;
+
+  const engineMatch = /(?:^|\n)(?:\d{4}\s+)?([^\n]+?)\s*\(Engine\s*1\)/i.exec(text);
+  if (engineMatch) {
+    const engine = engineMatch[1].trim().replace(/^\d{4}\s+/, '');
+    const [engineMake, ...engineModel] = engine.split(/\s+/);
+    if (engineMake) result.engineMake = engineMake;
+    if (engineModel.length) result.engineModel = engineModel.join(' ');
+  }
+
+  const descriptionMatch = /(?:^|\n)Description\s*\n([\s\S]*?)(?:\n\s*Information\s*&\s*Features|\n\s*Dimensions\s*\n)/i.exec(text);
+  if (descriptionMatch) result.description = descriptionMatch[1].trim();
+
+  return prepareYachtListingData(result);
+};
+
+const mergeSourceFields = (target, source) => {
+  Object.entries(source).forEach(([key, value]) => {
+    if (key === 'additionalDetails') {
+      const existing = Array.isArray(target[key]) ? target[key] : [];
+      target[key] = normalizeAdditionalDetails([...existing, ...value]);
+      return;
+    }
+    // These values came from an explicit PDF label/table, so they are more
+    // reliable than an AI inference from a narrative paragraph.
+    target[key] = value;
+  });
+  return target;
 };
 
 const mapWithConcurrency = async (items, concurrency, mapper) => {
@@ -407,7 +523,11 @@ export const extractListingFromPdf = async (req, res) => {
     }
 
     // 3️⃣ Validate and prepare data before uploading images or saving
-    const preparedData = prepareYachtListingData(matchedData);
+    const sourceFields = getFallbackFieldsFromPdfText(extractedText);
+    const preparedData = mergeSourceFields(
+      prepareYachtListingData(matchedData),
+      sourceFields
+    );
     let fallbackNameUsed = false;
     let extractedFieldNames = getExtractedFieldNames(preparedData);
 
@@ -510,15 +630,16 @@ export const extractListingFromPdf = async (req, res) => {
 
     const imageUrls = uploadedImages.filter(Boolean);
 
-    sendEvent('status', { message: 'Saving listing...' });
+    sendEvent('status', { message: 'Preparing extracted listing for review...' });
 
-    // Create the listing automatically
-    const listing = await YachtListing.create({
+    // Do not save to MongoDB here. The client creates the listing only after
+    // the user has reviewed the values and pressed Save.
+    const listing = {
       ...preparedData,
       images: imageUrls,
-      createdBy: userId,
+      pdfExtractedText: extractedText,
       isActive: true
-    });
+    };
 
     // 5️⃣ Final Response
     sendEvent('final', {
@@ -588,6 +709,7 @@ export const createYachtListing = async (req, res) => {
 
     // 2️⃣ Parse nested JSON fields
     const constructions = normalizeConstructions(req.body.constructions);
+    const additionalDetails = normalizeAdditionalDetails(req.body.additionalDetails);
     const lengthOverall = parseJsonField(req.body.lengthOverall, undefined);
     const beam = parseJsonField(req.body.beam, undefined);
     const draft = parseJsonField(req.body.draft, undefined);
@@ -640,6 +762,7 @@ export const createYachtListing = async (req, res) => {
     const listing = await YachtListing.create({
       ...req.body,
       constructions,
+      additionalDetails,
       lengthOverall,
       beam,
       draft,
@@ -721,6 +844,10 @@ export const updateYachtListingById = async (req, res) => {
     const lengthOverall = parseJsonField(req.body.lengthOverall, undefined);
     const beam = parseJsonField(req.body.beam, undefined);
     const draft = parseJsonField(req.body.draft, undefined);
+    const additionalDetails =
+      req.body.additionalDetails !== undefined
+        ? normalizeAdditionalDetails(req.body.additionalDetails)
+        : undefined;
 
     // 2️⃣ Handle images
     let imageUrls = [];
@@ -768,6 +895,7 @@ export const updateYachtListingById = async (req, res) => {
       lengthOverall,
       beam,
       draft,
+      additionalDetails,
       images: imageUrls.length ? imageUrls : undefined // only update if we have images
     };
 

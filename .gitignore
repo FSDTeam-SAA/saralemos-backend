@@ -4,8 +4,6 @@ node_modules/
 
 # Environment variables / Secrets
 
-.env
-.env.*
 !.env.example
 
 # Logs
@@ -28,7 +26,6 @@ Thumbs.db
 
 # IDE / Editor
 
-.vscode/
 .idea/
 
 # Local / temporary files
