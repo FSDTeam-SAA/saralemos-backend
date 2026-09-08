@@ -23,6 +23,23 @@ function mergeExtraction(existing, newData) {
   const merged = { ...existing };
   for (const key in newData) {
     if (newData[key] !== null && newData[key] !== undefined && newData[key] !== "") {
+      if (key === 'additionalDetails' && Array.isArray(newData[key])) {
+        const currentDetails = Array.isArray(merged[key]) ? merged[key] : [];
+        const seen = new Set(
+          currentDetails.map((detail) =>
+            `${detail?.section || ''}|${detail?.label || ''}|${detail?.value || ''}`.toLowerCase()
+          )
+        );
+        const newDetails = newData[key].filter((detail) => {
+          if (!detail?.label || detail?.value === null || detail?.value === undefined || detail?.value === '') return false;
+          const normalized = `${detail.section || ''}|${detail.label}|${detail.value}`.toLowerCase();
+          if (seen.has(normalized)) return false;
+          seen.add(normalized);
+          return true;
+        });
+        merged[key] = [...currentDetails, ...newDetails];
+        continue;
+      }
       if (typeof newData[key] === 'object' && !Array.isArray(newData[key]) && merged[key] && typeof merged[key] === 'object') {
         merged[key] = mergeExtraction(merged[key], newData[key]);
       } else {
@@ -67,6 +84,7 @@ matching this schema:
   location,
   guestCapacity,
   Price,
+  priceCurrency,
   bathRooms,
   bedRooms,
   cabins,
@@ -80,7 +98,8 @@ matching this schema:
   grossTons,
   engineMake,
   engineModel,
-  description
+  description,
+  additionalDetails: [{ section, label, value }]
 }
 
 For constructions, return booleans only. If a construction material is not
@@ -127,11 +146,31 @@ The yacht name is typically found through context clues:
 - model: Model number/code (if separate from name)
 - yachtType: Type (Motor Yacht, Sailing Yacht, Catamaran, etc.)
 - For all dimensions: numeric value + unit (m/ft), or null if missing
+- Map common brochure labels to the main form fields whenever possible:
+  "Guest Cabins" -> cabins, "Guest Heads" -> bathRooms,
+  "Seating Capacity" or "Max Passengers" -> guestCapacity,
+  "Builder" -> builder, and engine headings/details -> engineMake/engineModel.
+
+**PRESERVE ALL OTHER PDF SPECIFICATIONS:**
+- Do not discard useful information that has no matching top-level field.
+- Put every additional specification in additionalDetails as objects with:
+  section: the PDF heading/category (for example "Information & Features", "Engines", "Tanks", "Electronics", "Equipment")
+  label: the exact or concise specification name (for example "Fuel Type", "Cruising Speed", "Dry Weight")
+  value: its value, including units and quantities.
+- Include table rows, engine details, speeds, weights, tank capacities, equipment, covers, electronics, and accommodation details.
+- Do not duplicate a value already returned in a matching top-level field unless it adds useful context.
+- Keep each value short and factual. Do not invent information.
 
 **RETURN FORMAT:**
 - ONLY valid JSON
 - No markdown, no explanations
 - Null for any field not confidently found
+- Populate a main listing field only from an explicit PDF label/table value or
+  the document title. Never guess from marketing copy.
+- Preserve source values exactly: do not change a year, round a dimension, or
+  replace a listed price. If a table and description disagree, use the table.
+- Return priceCurrency as the currency symbol/code written beside Price
+  (for example €, $, EUR, USD), otherwise null.
 
 TEXT CHUNK:
 """${chunk}"""
