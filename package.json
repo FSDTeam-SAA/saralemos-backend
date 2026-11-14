@@ -4,9 +4,9 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
-    "build": "echo 'No build step required'",
+    "start": "node init && node index.js",
+    "dev": "node init && nodemon index.js",
+    "build": "node init && echo 'No build step required'",
     "test": "jest"
   },
   "dependencies": {
